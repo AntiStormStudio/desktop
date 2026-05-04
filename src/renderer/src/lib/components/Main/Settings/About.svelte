@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
-  import { appInfo } from '../../../stores'
+  import { appInfo, config } from '../../../stores'
   import i18n from '../../../i18n'
   import { APP_PROFILE } from '../../../profile'
   import logoImage from '../../../assets/images/splash-dark.png'
+  import Switch from '../../common/Switch.svelte'
 
   let openWebuiVersion = $state<string | null>(null)
   let openTerminalVersion = $state<string | null>(null)
@@ -222,6 +223,14 @@
     window.electronAPI.installUpdate()
   }
 
+  const updateDesktopAutoUpdate = async (value: boolean) => {
+    await window.electronAPI.setConfig({
+      desktopAutoUpdate: value,
+      ...(value ? {} : { desktopAutoUpdateInstallOnLaunch: false })
+    })
+    config.set(await window.electronAPI.getConfig())
+  }
+
   const toggleChangelog = async () => {
     changelogOpen = !changelogOpen
     if (changelogOpen && changelogEntries.length === 0) {
@@ -309,6 +318,18 @@
   <div class="py-4 flex items-center justify-between">
     <div class="text-[13px] opacity-70">{$i18n.t('settings.about.platform')}</div>
     <div class="text-[12px] opacity-30">{$appInfo?.platform ?? $i18n.t('common.unknown')}</div>
+  </div>
+
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.about.autoUpdate')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.about.autoUpdateDesc')}</div>
+    </div>
+    <Switch
+      checked={$config?.desktopAutoUpdate !== false}
+      label={$i18n.t('settings.about.toggleAutoUpdate')}
+      onchange={updateDesktopAutoUpdate}
+    />
   </div>
 
   <!-- Update section -->

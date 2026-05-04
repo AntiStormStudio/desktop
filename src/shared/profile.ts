@@ -55,7 +55,10 @@ export const APP_PROFILE = {
       "system.platform",
       "system.selectFolder",
       "resources.openPath",
-      "resources.selectFile"
+      "resources.selectFile",
+      "terminal.local.info",
+      "terminal.local.ensure",
+      "terminal.local.stop"
     ]
   },
   "updates": {

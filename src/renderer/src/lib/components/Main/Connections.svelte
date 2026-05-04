@@ -82,6 +82,9 @@
     activeConnectionId = connectionId
     connectedUrl = url
     view = 'connected'
+    if (openTerminalInfo?.status === 'started' && openTerminalInfo?.url && openTerminalInfo?.apiKey) {
+      requestAnimationFrame(() => publishDesktopLocalTerminal(openTerminalInfo))
+    }
     return tab
   }
 
@@ -164,7 +167,7 @@
 
   // Open Terminal state
   let openTerminalStatus = $state<string | null>(null)
-  let openTerminalInfo = $state<{ url?: string; apiKey?: string } | null>(null)
+  let openTerminalInfo = $state<{ url?: string; apiKey?: string; status?: string } | null>(null)
 
   // Llama Server state
   let llamaCppStatus = $state<string | null>(null)
@@ -488,6 +491,28 @@
     }
   }
 
+  function publishDesktopLocalTerminal(info: any, action: 'add' | 'remove' = 'add') {
+    if (!info?.url) return
+    sendToWebview(
+      {
+        type: 'connections:terminal',
+        data: {
+          action,
+          url: info.url,
+          key: info.apiKey ?? '',
+          name: '本机终端',
+          provider: 'desktop-local',
+          managed_by: 'desktop',
+          config: {
+            provider: 'desktop-local',
+            managed_by: 'desktop',
+            runtime: 'open-terminal'
+          }
+        }
+      }
+    )
+  }
+
   // Listen for events from main process
   onMount(() => {
     const handleNewTab = () => openNewTab()
@@ -576,8 +601,9 @@
         return
       }
       if (data.type === 'open-terminal:ready') {
-        openTerminalInfo = data.data
+        openTerminalInfo = { ...(data.data ?? {}), status: 'started' }
         openTerminalStatus = 'started'
+        publishDesktopLocalTerminal(openTerminalInfo)
         return
       }
       if (data.type === 'status:llamacpp') {
@@ -616,6 +642,9 @@
       if (info?.status) {
         openTerminalStatus = info.status
         openTerminalInfo = info
+        if (info.status === 'started' && info.url && info.apiKey) {
+          requestAnimationFrame(() => publishDesktopLocalTerminal(info))
+        }
       }
     })
 
@@ -654,8 +683,9 @@
       openTerminalStatus = 'starting'
       const result = await window.electronAPI.startOpenTerminal()
       if (result) {
-        openTerminalInfo = result
+        openTerminalInfo = { ...result, status: 'started' }
         openTerminalStatus = 'started'
+        publishDesktopLocalTerminal(openTerminalInfo)
       } else {
         openTerminalStatus = 'failed'
       }

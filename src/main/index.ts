@@ -133,6 +133,7 @@ const BRAND = APP_PROFILE.brand
 const FEATURES = APP_PROFILE.features
 const DESKTOP_PROTOCOL = 'spal'
 const DESKTOP_MAGIC_AUTH_HOST = 'auth'
+const DESKTOP_LOCAL_TERMINAL_NAME = '本机终端'
 const REMOTE_PERMISSION_ALLOWLIST = new Set<string>([
   ...APP_PROFILE.remotePermissions.allowed,
   ...(FEATURES.allowRemotePasskeys
@@ -1224,6 +1225,38 @@ const broadcastSystemTheme = (): void => {
   sendToRenderer('theme:system-update', { theme: getResolvedSystemTheme() })
 }
 
+const buildDesktopLocalTerminalEvent = (action: 'add' | 'remove', info: any = {}) => ({
+  action,
+  url: info?.url ?? '',
+  key: info?.apiKey ?? '',
+  name: DESKTOP_LOCAL_TERMINAL_NAME,
+  provider: 'desktop-local',
+  managed_by: 'desktop',
+  config: {
+    provider: 'desktop-local',
+    managed_by: 'desktop',
+    runtime: 'open-terminal'
+  }
+})
+
+const notifyDesktopLocalTerminal = (action: 'add' | 'remove', info: any = getOpenTerminalInfo()) => {
+  if (action === 'add' && (!info?.url || !info?.apiKey)) return
+  if (action === 'remove' && !info?.url) return
+  sendToRenderer('connections:terminal', buildDesktopLocalTerminalEvent(action, info))
+}
+
+const getDesktopLocalTerminalInfo = () => ({
+  ...getOpenTerminalInfo(),
+  name: DESKTOP_LOCAL_TERMINAL_NAME,
+  provider: 'desktop-local',
+  managed_by: 'desktop',
+  config: {
+    provider: 'desktop-local',
+    managed_by: 'desktop',
+    runtime: 'open-terminal'
+  }
+})
+
 const localInstallDisabledError = () =>
   new Error(`${APP_PROFILE.brand.serviceName} local installation is disabled in this build.`)
 
@@ -1719,6 +1752,33 @@ if (!gotTheLock) {
           const targetPath = String(request.payload?.path ?? '')
           if (!targetPath) throw new Error('No path provided.')
           return shell.openPath(targetPath)
+        }
+        case 'terminal.local.info':
+          return getDesktopLocalTerminalInfo()
+        case 'terminal.local.ensure': {
+          let info = getOpenTerminalInfo()
+          if (!info?.url || info?.status !== 'started') {
+            sendToRenderer('status:open-terminal', 'starting')
+            const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null)
+            sendToRenderer('status:open-terminal', 'started')
+            sendToRenderer('open-terminal:ready', result)
+            notifyDesktopLocalTerminal('add', result)
+            await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: true } })
+            CONFIG = await getConfig()
+            info = getOpenTerminalInfo()
+          } else {
+            notifyDesktopLocalTerminal('add', info)
+          }
+          return getDesktopLocalTerminalInfo()
+        }
+        case 'terminal.local.stop': {
+          const info = getOpenTerminalInfo()
+          await stopOpenTerminal()
+          sendToRenderer('status:open-terminal', 'stopped')
+          notifyDesktopLocalTerminal('remove', info)
+          await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: false } })
+          CONFIG = await getConfig()
+          return true
         }
         default:
           throw new Error(`Unhandled desktop bridge capability: ${request.capability}`)
@@ -2262,12 +2322,7 @@ if (!gotTheLock) {
         const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null)
         sendToRenderer('status:open-terminal', 'started')
         sendToRenderer('open-terminal:ready', result)
-        // Notify webview to register terminal server at system level
-        sendToRenderer('connections:terminal', {
-          action: 'add',
-          url: result.url,
-          key: result.apiKey
-        })
+        notifyDesktopLocalTerminal('add', result)
         // Save enabled state
         await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: true } })
         CONFIG = await getConfig()
@@ -2285,13 +2340,7 @@ if (!gotTheLock) {
         const info = getOpenTerminalInfo()
         await stopOpenTerminal()
         sendToRenderer('status:open-terminal', 'stopped')
-        // Notify webview to unregister terminal server
-        if (info.url) {
-          sendToRenderer('connections:terminal', {
-            action: 'remove',
-            url: info.url
-          })
-        }
+        notifyDesktopLocalTerminal('remove', info)
         await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: false } })
         CONFIG = await getConfig()
         return true
@@ -2563,6 +2612,7 @@ if (!gotTheLock) {
         const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null)
         sendToRenderer('status:open-terminal', 'started')
         sendToRenderer('open-terminal:ready', result)
+        notifyDesktopLocalTerminal('add', result)
       } catch (error) {
         log.error('Auto-start Open Terminal failed:', error)
         sendToRenderer('status:open-terminal', 'failed')
@@ -2606,7 +2656,10 @@ if (!gotTheLock) {
 
     // Initialize auto-updater
     if (mainWindow) {
-      initUpdater(mainWindow)
+      initUpdater(mainWindow, {
+        autoUpdateEnabled: CONFIG.desktopAutoUpdate !== false,
+        installPendingOnLaunch: CONFIG.desktopAutoUpdateInstallOnLaunch === true
+      })
       broadcastSystemTheme()
     }
 
