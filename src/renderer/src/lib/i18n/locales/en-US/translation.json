@@ -31,6 +31,7 @@
   "common.refresh": "Refresh",
   "common.download": "Download",
   "common.downloading": "Downloading…",
+  "auth.desktopSignedIn": "Signed in to the desktop app.",
   "common.reset": "Reset",
   "common.resetting": "Resetting…",
   "common.none": "None",

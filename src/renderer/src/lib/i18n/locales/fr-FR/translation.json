@@ -31,6 +31,7 @@
   "common.refresh": "Actualiser",
   "common.download": "Télécharger",
   "common.downloading": "Téléchargement…",
+  "auth.desktopSignedIn": "Connecté à l'application de bureau.",
   "common.reset": "Réinitialiser",
   "common.resetting": "Réinitialisation…",
   "common.none": "Aucun",

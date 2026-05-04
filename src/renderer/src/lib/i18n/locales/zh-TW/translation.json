@@ -31,6 +31,7 @@
   "common.refresh": "重新整理",
   "common.download": "下載",
   "common.downloading": "下載中…",
+  "auth.desktopSignedIn": "已登入到桌面應用。",
   "common.reset": "重設",
   "common.resetting": "重設中…",
   "common.none": "無",

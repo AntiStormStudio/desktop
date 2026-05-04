@@ -31,6 +31,7 @@
   "common.refresh": "새로고침",
   "common.download": "다운로드",
   "common.downloading": "다운로드 중…",
+  "auth.desktopSignedIn": "데스크톱 앱에 로그인했습니다.",
   "common.reset": "초기화",
   "common.resetting": "초기화 중…",
   "common.none": "없음",
