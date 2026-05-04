@@ -1840,7 +1840,9 @@ if (!gotTheLock) {
     ipcMain.handle('open-terminal:start', async () => {
       try {
         sendToRenderer('status:open-terminal', 'starting')
-        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null)
+        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null, (status) => {
+          sendToRenderer('status:open-terminal-setup', status)
+        })
         sendToRenderer('status:open-terminal', 'started')
         sendToRenderer('open-terminal:ready', result)
         // Notify webview to register terminal server at system level
@@ -2111,7 +2113,9 @@ if (!gotTheLock) {
     if (CONFIG?.openTerminal?.enabled) {
       try {
         sendToRenderer('status:open-terminal', 'starting')
-        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null)
+        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null, (status) => {
+          sendToRenderer('status:open-terminal-setup', status)
+        })
         sendToRenderer('status:open-terminal', 'started')
         sendToRenderer('open-terminal:ready', result)
       } catch (error) {
