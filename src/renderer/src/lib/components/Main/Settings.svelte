@@ -77,12 +77,12 @@
 </script>
 
 <div
-  class="h-full w-full flex bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]"
+  class="settings-frame h-full w-full flex bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]"
   in:fade={{ duration: 150 }}
 >
   <!-- Settings sidebar -->
   <div
-    class="w-[180px] shrink-0 flex flex-col border-r border-black/[0.06] dark:border-white/[0.06] bg-[#eee] dark:bg-[#111] px-1.5"
+    class="settings-sidebar w-[180px] shrink-0 flex flex-col border-r border-black/[0.06] dark:border-white/[0.06] bg-[#eee] dark:bg-[#111] px-1.5"
   >
     <div class="h-4 shrink-0"></div>
     <div class="px-3 pb-3">

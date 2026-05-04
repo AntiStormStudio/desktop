@@ -65,7 +65,7 @@
 </script>
 
 <div
-  class="w-[200px] shrink-0 flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] relative"
+  class="sidebar-frame w-[200px] shrink-0 flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] relative"
   in:fly={{ x: -200, duration: 200 }}
 >
   <!-- Connections header -->

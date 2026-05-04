@@ -823,6 +823,7 @@ export interface AppConfig {
   defaultConnectionId: string | null
   connections: Connection[]
   runInBackground: boolean
+  glassEffect: boolean
   globalShortcut: string
   spotlightShortcut: string
   installDir: string
@@ -862,6 +863,7 @@ const DEFAULT_CONFIG: AppConfig = {
   defaultConnectionId: null,
   connections: [],
   runInBackground: true,
+  glassEffect: true,
   globalShortcut: 'Alt+CommandOrControl+O',
   spotlightShortcut: 'Shift+CommandOrControl+I',
   installDir: '',

@@ -7,6 +7,7 @@
 
   let launchAtLogin = $state(false)
   let runInBackground = $state(true)
+  let glassEffect = $state(true)
   let resetting = $state(false)
   let theme = $state<string>('system')
   let advancedOpen = $state(false)
@@ -24,6 +25,7 @@
     launchAtLogin = await window.electronAPI.getLaunchAtLogin()
     const cfg = await window.electronAPI.getConfig()
     runInBackground = cfg?.runInBackground ?? true
+    glassEffect = cfg?.glassEffect ?? true
     const vars = cfg?.envVars ?? {}
     envEntries = Object.entries(vars).map(([key, value]) => ({ key, value: value as string }))
     theme = cfg?.theme ?? 'system'
@@ -397,6 +399,24 @@
         </svg>
       </button>
     </div>
+  </div>
+
+  <div class="py-4 flex items-center justify-between">
+    <div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.glassEffect')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">
+        {$i18n.t('settings.general.glassEffectDesc')}
+      </div>
+    </div>
+    <Switch
+      checked={glassEffect}
+      label={$i18n.t('settings.general.toggleGlassEffect')}
+      onchange={async (value) => {
+        glassEffect = value
+        await window.electronAPI.setConfig({ glassEffect: value })
+        config.set(await window.electronAPI.getConfig())
+      }}
+    />
   </div>
 
   {#if APP_PROFILE.features.allowLocalOpenWebUIInstall}

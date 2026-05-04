@@ -6,17 +6,31 @@
 
   import Sidebar from './Connections/Sidebar.svelte'
   import Content from './Connections/Content.svelte'
-  import StatusBar from './Connections/StatusBar.svelte'
   import LogPanel from './Connections/LogPanel.svelte'
   import { APP_PROFILE } from '../../profile'
+
+  type BrowserTab = {
+    id: string
+    connectionId: string
+    title: string
+    url: string
+  }
 
   interface Props {
     onOpenSettings: () => void
     sidebarOpen: boolean
     activeConnectionName?: string
+    browserTabs?: BrowserTab[]
+    activeTabId?: string
   }
 
-  let { onOpenSettings, sidebarOpen, activeConnectionName = $bindable('') }: Props = $props()
+  let {
+    onOpenSettings,
+    sidebarOpen,
+    activeConnectionName = $bindable(''),
+    browserTabs = $bindable([]),
+    activeTabId = $bindable('')
+  }: Props = $props()
 
   let isLocalConnection = $state(false)
   let showingLogs = $state(false)
@@ -35,10 +49,9 @@
   let connectedUrl = $state('')
   let activeConnectionId = $state('')
   let connectingId = $state('')
-  let openConnections: Map<string, string> = $state(new Map())
   let localInstalled = $state(false)
-  let openTerminalInstalled = $state(false)
   let showAddConnectionModal = $state(false)
+  let splitTabIds = $state<string[]>([])
 
   // Active log panel
   let activeLog = $state<'server' | 'open-terminal' | 'llama-server' | null>(null)
@@ -50,6 +63,102 @@
   const hasLocal = $derived(($connections ?? []).some((c) => c.type === 'local'))
   const localConn = $derived(($connections ?? []).find((c) => c.type === 'local'))
   const remoteConnections = $derived(($connections ?? []).filter((c) => c.type !== 'local'))
+  const activeTab = $derived(browserTabs.find((tab) => tab.id === activeTabId) ?? null)
+
+  const getConnection = (id: string) => ($connections ?? []).find((conn) => conn.id === id)
+
+  const createTab = (connectionId: string, url: string, title?: string) => {
+    const conn = getConnection(connectionId)
+    const tab: BrowserTab = {
+      id: crypto.randomUUID(),
+      connectionId,
+      url,
+      title: title || conn?.name || $i18n.t('app.name')
+    }
+    browserTabs = [...browserTabs, tab]
+    activeTabId = tab.id
+    activeConnectionId = connectionId
+    connectedUrl = url
+    view = 'connected'
+    return tab
+  }
+
+  const selectTab = (tabId: string) => {
+    const tab = browserTabs.find((item) => item.id === tabId)
+    if (!tab) return
+    activeTabId = tab.id
+    activeConnectionId = tab.connectionId
+    connectedUrl = tab.url
+    connectingId = ''
+    view = 'connected'
+  }
+
+  const closeTab = (tabId: string) => {
+    const index = browserTabs.findIndex((tab) => tab.id === tabId)
+    if (index === -1) return
+    const nextTabs = browserTabs.filter((tab) => tab.id !== tabId)
+    browserTabs = nextTabs
+    splitTabIds = splitTabIds.filter((id) => id !== tabId)
+
+    if (activeTabId !== tabId) return
+
+    const nextTab = nextTabs[Math.min(index, nextTabs.length - 1)]
+    if (nextTab) {
+      selectTab(nextTab.id)
+    } else {
+      disconnect()
+    }
+  }
+
+  const openNewTab = () => {
+    const targetId =
+      activeConnectionId ||
+      $config?.defaultConnectionId ||
+      remoteConnections[0]?.id ||
+      (APP_PROFILE.features.allowLocalOpenWebUIInstall ? localConn?.id : '')
+    if (!targetId) return
+
+    const conn = getConnection(targetId)
+    if (!conn) return
+    if (conn.type === 'local') {
+      if (!APP_PROFILE.features.allowLocalOpenWebUIInstall) return
+      const existingUrl = activeTab?.connectionId === conn.id ? activeTab.url : connectedUrl
+      if (existingUrl) createTab(conn.id, existingUrl)
+      else connect(conn.id)
+      return
+    }
+
+    createTab(conn.id, conn.url)
+  }
+
+  const splitTab = (tabId: string) => {
+    if (!tabId || !browserTabs.some((tab) => tab.id === tabId)) return
+    if (tabId === activeTabId) return
+    if (splitTabIds.includes(tabId)) return
+    if ([activeTabId, ...splitTabIds].filter(Boolean).length >= 4) return
+    splitTabIds = [...splitTabIds, tabId]
+  }
+
+  const splitActiveWithNextTab = () => {
+    const next = browserTabs.find((tab) => tab.id !== activeTabId && !splitTabIds.includes(tab.id))
+    if (next) {
+      splitTab(next.id)
+      return
+    }
+    openNewTab()
+  }
+
+  const unsplitTab = (tabId: string) => {
+    splitTabIds = splitTabIds.filter((id) => id !== tabId)
+  }
+
+  const updateTab = (tabId: string, patch: Partial<BrowserTab>) => {
+    browserTabs = browserTabs.map((tab) => (tab.id === tabId ? { ...tab, ...patch } : tab))
+    if (tabId === activeTabId) {
+      const tab = browserTabs.find((item) => item.id === tabId)
+      connectedUrl = tab?.url ?? connectedUrl
+    }
+  }
 
   // Open Terminal state
   let openTerminalStatus = $state<string | null>(null)
@@ -206,18 +315,18 @@
     if (activeConnectionId === id && view === 'connected') {
       connectingId = ''
       activeConnectionId = ''
+      activeTabId = ''
       connectedUrl = ''
       view = 'welcome'
       return
     }
     // Persist as default so spotlight/startup always use the last-selected connection
     window.electronAPI.setDefaultConnection(id)
-    // Already-open connection — just switch to it
-    if (openConnections.has(id)) {
+    // Already-open connection — just switch to its first tab
+    const existingTab = browserTabs.find((tab) => tab.connectionId === id)
+    if (existingTab) {
       connectingId = ''
-      activeConnectionId = id
-      connectedUrl = openConnections.get(id)!
-      view = 'connected'
+      selectTab(existingTab.id)
       return
     }
 
@@ -236,12 +345,9 @@
           if (connectingId === id) connectingId = ''
           return
         }
-        if (!openConnections.has(result.connectionId)) {
-          openConnections.set(result.connectionId, result.url)
-          openConnections = new Map(openConnections)
-        }
         if (connectingId === id) {
-          connectedUrl = result.url
+          const tab = createTab(result.connectionId, result.url)
+          connectedUrl = tab.url
           activeConnectionId = result.connectionId
           connectingId = ''
           if (installPhase !== 'working') {
@@ -252,15 +358,13 @@
     } else {
       // Remote — open immediately, no IPC needed
       connectingId = ''
-      openConnections.set(id, conn.url)
-      openConnections = new Map(openConnections)
-      connectedUrl = conn.url
-      view = 'connected'
+      createTab(id, conn.url)
     }
   }
 
   const disconnect = () => {
     activeConnectionId = ''
+    activeTabId = ''
     connectedUrl = ''
     view = 'welcome'
   }
@@ -272,12 +376,16 @@
     if (activeConnectionId === id) {
       disconnect()
     }
-    openConnections.delete(id)
-    openConnections = new Map(openConnections)
+    browserTabs = browserTabs.filter((tab) => tab.connectionId !== id)
   }
 
   // Sync active connection info to parent
   $effect(() => {
+    const active = browserTabs.find((tab) => tab.id === activeTabId)
+    if (active && activeConnectionId !== active.connectionId) {
+      activeConnectionId = active.connectionId
+      connectedUrl = active.url
+    }
     const conn = ($connections ?? []).find((c) => c.id === activeConnectionId)
     activeConnectionName = conn?.name ?? ''
     isLocalConnection = conn?.type === 'local'
@@ -343,11 +451,6 @@
     return undefined
   }
 
-  // ── Status bar log selection ──────────────────────────
-  const selectLog = (log: string) => {
-    activeLog = activeLog === log ? null : (log as typeof activeLog)
-  }
-
   // ── Webview event delivery ─────────────────────────────
   // Single path: all events from the main process flow through here.
   // Query events target a specific webview; everything else broadcasts.
@@ -355,11 +458,16 @@
     const container = document.querySelector('.content-webview-container')
     if (!container) return
 
-    const webviews = connId
-      ? [
-          container.querySelector(`webview[partition="persist:connection-${connId}"]`) as any
-        ].filter(Boolean)
-      : Array.from(container.querySelectorAll('webview'))
+    let webviews: any[] = []
+    if (connId) {
+      const active = container.querySelector(
+        `webview[data-tab-id="${activeTabId}"][data-connection-id="${connId}"]`
+      ) as any
+      const first = container.querySelector(`webview[data-connection-id="${connId}"]`) as any
+      webviews = [active || first].filter(Boolean)
+    } else {
+      webviews = Array.from(container.querySelectorAll('webview'))
+    }
 
     for (const wv of webviews) {
       try {
@@ -380,19 +488,38 @@
 
   // Listen for events from main process
   onMount(() => {
+    const handleNewTab = () => openNewTab()
+    const handleSwitchTab = (event: Event) => {
+      const tabId = (event as CustomEvent).detail?.tabId
+      if (tabId) selectTab(tabId)
+    }
+    const handleCloseTab = (event: Event) => {
+      const tabId = (event as CustomEvent).detail?.tabId
+      if (tabId) closeTab(tabId)
+    }
+    const handleSplitTab = (event: Event) => {
+      const tabId = (event as CustomEvent).detail?.tabId
+      if (tabId) splitTab(tabId)
+    }
+    const handleSplitActive = () => splitActiveWithNextTab()
+
+    window.addEventListener('spark-tabs:new', handleNewTab)
+    window.addEventListener('spark-tabs:switch', handleSwitchTab)
+    window.addEventListener('spark-tabs:close', handleCloseTab)
+    window.addEventListener('spark-tabs:split', handleSplitTab)
+    window.addEventListener('spark-tabs:split-active', handleSplitActive)
+
     window.electronAPI.onData((data: any) => {
       // ── Connection opened (startup, tray click) ───────
       if (data.type === 'connection:open' && data.data?.url) {
         const connId = data.data.connectionId ?? ''
         const incomingUrl = data.data.url
-
-        if (!openConnections.has(connId) || openConnections.get(connId) !== incomingUrl) {
-          openConnections.set(connId, incomingUrl)
-          openConnections = new Map(openConnections)
+        const tab = browserTabs.find((item) => item.connectionId === connId)
+        if (tab) {
+          selectTab(tab.id)
+        } else {
+          createTab(connId, incomingUrl)
         }
-
-        connectedUrl = openConnections.get(connId) ?? incomingUrl
-        activeConnectionId = connId
         if (installPhase !== 'working') view = 'connected'
         return
       }
@@ -404,12 +531,11 @@
         const files = data.data.files
         const baseUrl = data.data.url ?? ''
 
-        if (!openConnections.has(connId)) {
-          openConnections.set(connId, baseUrl)
-          openConnections = new Map(openConnections)
-          connectedUrl = baseUrl
+        let targetTab = browserTabs.find((item) => item.connectionId === connId)
+        if (!targetTab) {
+          targetTab = createTab(connId, baseUrl)
         } else {
-          connectedUrl = openConnections.get(connId)!
+          selectTab(targetTab.id)
         }
         activeConnectionId = connId
         if (installPhase !== 'working') view = 'connected'
@@ -426,12 +552,11 @@
         const connId = data.data.connectionId ?? ''
         const baseUrl = data.data.url ?? ''
 
-        if (!openConnections.has(connId)) {
-          openConnections.set(connId, baseUrl)
-          openConnections = new Map(openConnections)
-          connectedUrl = baseUrl
+        let targetTab = browserTabs.find((item) => item.connectionId === connId)
+        if (!targetTab) {
+          targetTab = createTab(connId, baseUrl)
         } else {
-          connectedUrl = openConnections.get(connId)!
+          selectTab(targetTab.id)
         }
         activeConnectionId = connId
         if (installPhase !== 'working') view = 'connected'
@@ -492,11 +617,6 @@
       }
     })
 
-    // Check if Open Terminal package is installed
-    window.electronAPI.getOpenTerminalStatus().then((installed: boolean) => {
-      openTerminalInstalled = installed
-    })
-
     // Check if Open WebUI package is installed
     window.electronAPI.getPackageVersion('open-webui').then((v: string | null) => {
       localInstalled = v !== null
@@ -511,6 +631,14 @@
         llamaCppInfo = info
       }
     })
+
+    return () => {
+      window.removeEventListener('spark-tabs:new', handleNewTab)
+      window.removeEventListener('spark-tabs:switch', handleSwitchTab)
+      window.removeEventListener('spark-tabs:close', handleCloseTab)
+      window.removeEventListener('spark-tabs:split', handleSplitTab)
+      window.removeEventListener('spark-tabs:split-active', handleSplitActive)
+    }
   })
 
   const toggleOpenTerminal = async () => {
@@ -555,7 +683,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="h-full w-full flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]"
+  class="workspace-frame h-full w-full flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]"
   in:fade={{ duration: 200 }}
 >
   <div class="flex-1 min-h-0 flex">
@@ -587,9 +715,11 @@
     <Content
       {sidebarOpen}
       bind:view
+      {activeTabId}
       {activeConnectionId}
       {connectingId}
-      {openConnections}
+      {browserTabs}
+      {splitTabIds}
       {localConn}
       {localInstalled}
       {remoteConnections}
@@ -604,6 +734,10 @@
       bind:autoInstall
       onStartInstall={startInstall}
       onAddConnection={addConnection}
+      onOpenNewTab={(connectionId, url, title) => createTab(connectionId, url, title)}
+      onUpdateTab={updateTab}
+      onSplitTab={splitTab}
+      onUnsplitTab={unsplitTab}
       onSetView={(v) => {
         view = v
       }}
@@ -655,30 +789,4 @@
     />
   {/if}
 
-  <StatusBar
-    {serverStatus}
-    {serverReachable}
-    {openTerminalStatus}
-    {llamaCppStatus}
-    openWebuiInstalled={localInstalled}
-    {openTerminalInstalled}
-    llamaCppInstalled={!!llamaCppInfo?.binaryPath}
-    {activeLog}
-    onSelectLog={selectLog}
-    onStartServer={async () => {
-      if (!APP_PROFILE.features.allowLocalOpenWebUIInstall) return
-      if (!localInstalled) {
-        // Not installed — trigger full install (handles Python/uv + package)
-        startInstall()
-        return
-      }
-      // Already installed — start the server
-      await window.electronAPI.startServer()
-      // Force-refresh serverInfo immediately (don't wait for 3s poll)
-      const info = await window.electronAPI.getServerInfo()
-      serverInfo.set(info)
-    }}
-    onToggleOpenTerminal={toggleOpenTerminal}
-    onToggleLlamaCpp={toggleLlamaCpp}
-  />
 </div>

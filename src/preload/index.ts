@@ -63,6 +63,8 @@ const api = {
   getInstallDir: () => ipcRenderer.invoke('app:installDir'),
   getContentPreloadPath: () => ipcRenderer.invoke('app:contentPreloadPath'),
   invokeDesktopBridge: (request: any) => ipcRenderer.invoke('desktop:bridge:invoke', request),
+  detachTab: (tab: { connectionId: string; url: string; title?: string }) =>
+    ipcRenderer.invoke('tabs:detach', tab),
   getDiskSpace: () => ipcRenderer.invoke('system:diskSpace'),
   getLaunchAtLogin: () => ipcRenderer.invoke('app:launchAtLogin:get'),
   setLaunchAtLogin: (enabled: boolean) => ipcRenderer.invoke('app:launchAtLogin:set', enabled),

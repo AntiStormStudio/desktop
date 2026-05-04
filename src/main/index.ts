@@ -13,6 +13,7 @@ import {
   MessageChannelMain,
   Notification,
   Menu,
+  nativeTheme,
   ipcMain,
   Tray,
   dialog
@@ -168,7 +169,7 @@ app.disableDomainBlockingFor3DAPIs()
 // ─── State ──────────────────────────────────────────────
 
 let mainWindow: BrowserWindow | null = null
-let contentWindow: BrowserWindow | null = null
+const detachedContentWindows = new Set<BrowserWindow>()
 let spotlightWindow: BrowserWindow | null = null
 let voiceInputWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -668,8 +669,30 @@ function trackNormalBounds(win: BrowserWindow): void {
   }
 }
 
+function applyGlassEffect(win: BrowserWindow, enabled: boolean): void {
+  if (win.isDestroyed()) return
+
+  if (process.platform === 'darwin') {
+    win.setVibrancy(enabled ? 'under-window' : null)
+    const anyWin = win as BrowserWindow & {
+      setVisualEffectState?: (state: 'active' | 'inactive' | 'followWindow') => void
+    }
+    anyWin.setVisualEffectState?.(enabled ? 'active' : 'inactive')
+  }
+
+  if (process.platform === 'win32') {
+    const anyWin = win as BrowserWindow & {
+      setBackgroundMaterial?: (material: string) => void
+    }
+    anyWin.setBackgroundMaterial?.(enabled ? 'acrylic' : 'none')
+  }
+
+  win.setBackgroundColor(enabled ? '#00000000' : '#f5f5f7')
+}
+
 function createMainWindow(show = true): void {
   const saved = CONFIG?.windowBounds
+  const glassEnabled = CONFIG?.glassEffect !== false
   const windowOpts: Electron.BrowserWindowConstructorOptions = {
     width: saved?.width ?? DEFAULT_WINDOW_WIDTH,
     height: saved?.height ?? DEFAULT_WINDOW_HEIGHT,
@@ -681,9 +704,14 @@ function createMainWindow(show = true): void {
     titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
     trafficLightPosition: { x: 10, y: 10 },
     autoHideMenuBar: true,
-    vibrancy: 'under-window',
-    visualEffectState: 'active',
-    backgroundColor: '#00000000',
+    backgroundColor: glassEnabled ? '#00000000' : '#f5f5f7',
+    transparent: glassEnabled,
+    ...(process.platform === 'darwin' && glassEnabled
+      ? { vibrancy: 'under-window' as const, visualEffectState: 'active' as const }
+      : {}),
+    ...(process.platform === 'win32' && glassEnabled
+      ? { backgroundMaterial: 'acrylic' as const }
+      : {}),
     ...(process.platform === 'win32' ? { frame: true } : {}),
     ...(process.platform === 'linux' ? { icon } : {}),
     ...(process.platform !== 'darwin' ? { titleBarOverlay: true } : {}),
@@ -702,6 +730,7 @@ function createMainWindow(show = true): void {
   }
 
   mainWindow = new BrowserWindow(windowOpts)
+  applyGlassEffect(mainWindow, glassEnabled)
   if (process.platform !== 'darwin') {
     mainWindow.setIcon(icon)
   }
@@ -760,20 +789,15 @@ function createMainWindow(show = true): void {
   })
 }
 
-function createContentWindow(url: string, connectionId: string): BrowserWindow {
-  if (contentWindow && !contentWindow.isDestroyed()) {
-    contentWindow.loadURL(url)
-    contentWindow.show()
-    return contentWindow
-  }
-
-  contentWindow = new BrowserWindow({
+function createContentWindow(url: string, connectionId: string, title = BRAND.name): BrowserWindow {
+  const contentWindow = new BrowserWindow({
     width: DEFAULT_WINDOW_WIDTH,
     height: DEFAULT_WINDOW_HEIGHT,
     minWidth: MIN_WINDOW_WIDTH,
     minHeight: MIN_WINDOW_HEIGHT,
     icon: path.join(__dirname, 'assets/icon.png'),
     show: false,
+    title,
     titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
     trafficLightPosition: { x: 16, y: 16 },
     autoHideMenuBar: true,
@@ -801,7 +825,11 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
     })
 
   contentWindow.on('ready-to-show', () => {
-    contentWindow?.show()
+    contentWindow.show()
+  })
+
+  contentWindow.on('page-title-updated', (_event, nextTitle) => {
+    if (nextTitle) contentWindow.setTitle(nextTitle)
   })
 
   contentWindow.webContents.setWindowOpenHandler((details) => {
@@ -815,21 +843,22 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
   contentWindow.loadURL(url)
 
   contentWindow.on('close', (event) => {
-    if (!isQuiting) {
-      if (CONFIG?.runInBackground === false) {
+    if (!isQuiting && CONFIG?.runInBackground === false) {
+      const visibleAppWindows = BrowserWindow.getAllWindows().filter(
+        (win) => !win.isDestroyed() && win !== contentWindow
+      )
+      if (visibleAppWindows.length === 0) {
         isQuiting = true
         app.quit()
-      } else {
-        event.preventDefault()
-        contentWindow?.hide()
       }
     }
   })
 
   contentWindow.on('closed', () => {
-    contentWindow = null
+    detachedContentWindows.delete(contentWindow)
   })
 
+  detachedContentWindows.add(contentWindow)
   return contentWindow
 }
 
@@ -1187,6 +1216,13 @@ const sendToRenderer = (type: string, data?: any) => {
   } else {
     send()
   }
+}
+
+const getResolvedSystemTheme = (): 'dark' | 'light' =>
+  nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+
+const broadcastSystemTheme = (): void => {
+  sendToRenderer('theme:system-update', { theme: getResolvedSystemTheme() })
 }
 
 const localInstallDisabledError = () =>
@@ -1700,10 +1736,30 @@ if (!gotTheLock) {
       }
     })
 
+    ipcMain.handle('tabs:detach', async (_event, tab) => {
+      const connectionId = String(tab?.connectionId ?? '')
+      const url = String(tab?.url ?? '')
+      const title = String(tab?.title ?? BRAND.name)
+      if (!connectionId || !url) throw new Error('Missing tab information.')
+
+      const config = await getConfig()
+      const connection = config.connections.find((conn) => conn.id === connectionId)
+      if (!connection) throw new Error('Connection is not configured.')
+      if (!isOriginAllowedInWebview(url, connection.url)) {
+        throw new Error('Detached tab URL is not trusted for this connection.')
+      }
+
+      createContentWindow(url, connectionId, title)
+      return true
+    })
+
     ipcMain.handle('get:config', () => getConfig())
     ipcMain.handle('set:config', async (_event, config) => {
       await setConfig(config)
       CONFIG = await getConfig()
+      if (mainWindow && !mainWindow.isDestroyed() && 'glassEffect' in config) {
+        applyGlassEffect(mainWindow, CONFIG.glassEffect !== false)
+      }
       updateTray()
       voiceInputRecording = false
       registerShortcuts(
@@ -2552,11 +2608,16 @@ if (!gotTheLock) {
     // Initialize auto-updater
     if (mainWindow) {
       initUpdater(mainWindow)
+      broadcastSystemTheme()
     }
 
+    nativeTheme.on('updated', broadcastSystemTheme)
+
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
-      else {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createMainWindow()
+        broadcastSystemTheme()
+      } else {
         mainWindow?.show()
         mainWindow?.focus()
       }
@@ -2576,7 +2637,10 @@ if (!gotTheLock) {
     await stopServerHandler()
     globalShortcut.unregisterAll()
     mainWindow = null
-    contentWindow = null
+    for (const win of detachedContentWindows) {
+      if (!win.isDestroyed()) win.destroy()
+    }
+    detachedContentWindows.clear()
     if (spotlightWindow && !spotlightWindow.isDestroyed()) {
       spotlightWindow.destroy()
     }

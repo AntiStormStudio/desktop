@@ -8,6 +8,7 @@
 
   let themeMediaQuery: MediaQueryList
   let themeChangeHandler: ((e: MediaQueryListEvent) => void) | null = null
+  let unsubscribeConfig: (() => void) | null = null
 
   const applyResolvedTheme = (theme: string) => {
     let resolved = theme
@@ -16,6 +17,10 @@
     }
     document.documentElement.classList.remove('light', 'dark')
     document.documentElement.classList.add(resolved)
+  }
+
+  const applyGlassClass = (enabled: boolean) => {
+    document.documentElement.classList.toggle('glass-enabled', enabled)
   }
 
   onMount(async () => {
@@ -27,6 +32,7 @@
     config.set(cfg)
     connections.set(await api.getConnections())
     if (cfg?.language) changeLanguage(cfg.language)
+    applyGlassClass(cfg?.glassEffect ?? true)
 
     // Apply saved theme
     const savedTheme = cfg?.theme ?? 'system'
@@ -51,6 +57,10 @@
       }
     })
 
+    unsubscribeConfig = config.subscribe((next: any) => {
+      applyGlassClass(next?.glassEffect ?? true)
+    })
+
     // Don't auto-install anything — the user must explicitly choose
     // "Get Started" (local install) which handles Python/uv as a prerequisite.
     appState.set('ready')
@@ -64,9 +74,10 @@
     if (themeMediaQuery && themeChangeHandler) {
       themeMediaQuery.removeEventListener('change', themeChangeHandler)
     }
+    unsubscribeConfig?.()
   })
 </script>
 
-<main class="w-full h-full bg-[#f5f5f7] dark:bg-[#0a0a0a]">
+<main class="app-shell w-full h-full bg-[#f5f5f7] dark:bg-[#0a0a0a]">
   <Main />
 </main>

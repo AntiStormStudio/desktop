@@ -69,6 +69,10 @@ html {
   user-select: none;
 }
 
+html.glass-enabled {
+  background: transparent;
+}
+
 html.dark {
   background: #0a0a0a;
   color: #fafafa;
@@ -78,10 +82,72 @@ body {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  background: transparent;
 }
 
 #app {
   height: 100vh;
+  background: transparent;
+}
+
+html.glass-enabled .app-shell {
+  background: transparent;
+}
+
+html.glass-enabled .main-frame {
+  background: transparent;
+}
+
+html.glass-enabled .workspace-frame {
+  background: transparent;
+}
+
+html.glass-enabled .sidebar-frame,
+html.glass-enabled .settings-frame,
+html.glass-enabled .settings-sidebar {
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(30px) saturate(170%);
+  -webkit-backdrop-filter: blur(30px) saturate(170%);
+}
+
+html.dark.glass-enabled .sidebar-frame,
+html.dark.glass-enabled .settings-frame,
+html.dark.glass-enabled .settings-sidebar {
+  background: rgba(0, 0, 0, 0.34);
+}
+
+html.glass-enabled .webview-frame {
+  background: rgba(238, 238, 238, 0.72);
+}
+
+html.dark.glass-enabled .webview-frame {
+  background: rgba(17, 17, 17, 0.72);
+}
+
+html.glass-enabled .top-chrome {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+}
+
+html.dark.glass-enabled .top-chrome {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+html.glass-enabled .active-tab {
+  background: rgba(255, 255, 255, 0.65);
+}
+
+html.dark.glass-enabled .active-tab {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 ::selection {

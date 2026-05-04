@@ -12,9 +12,11 @@
   interface Props {
     sidebarOpen: boolean
     view: string
+    activeTabId: string
     activeConnectionId: string
     connectingId: string
-    openConnections: Map<string, string>
+    browserTabs: { id: string; connectionId: string; title: string; url: string }[]
+    splitTabIds: string[]
     localConn: any
     localInstalled: boolean
     remoteConnections: any[]
@@ -34,14 +36,20 @@
     onAddConnection: () => void
     onSetView: (v: string) => void
     showAddConnectionModal: boolean
+    onOpenNewTab: (connectionId: string, url: string, title?: string) => void
+    onUpdateTab: (tabId: string, patch: { url?: string; title?: string }) => void
+    onSplitTab: (tabId: string) => void
+    onUnsplitTab: (tabId: string) => void
   }
 
   let {
     sidebarOpen,
     view,
+    activeTabId,
     activeConnectionId,
     connectingId,
-    openConnections,
+    browserTabs,
+    splitTabIds,
     localConn,
     localInstalled,
     remoteConnections,
@@ -56,10 +64,18 @@
     onStartInstall,
     onAddConnection,
     onSetView,
-    showAddConnectionModal = $bindable(false)
+    showAddConnectionModal = $bindable(false),
+    onOpenNewTab,
+    onUpdateTab,
+    onSplitTab,
+    onUnsplitTab
   }: Props = $props()
 
   let showGetStartedModal = $state(false)
+  const activeTab = $derived(browserTabs.find((tab) => tab.id === activeTabId) ?? null)
+  let splitColumn = $state(50)
+  let splitRow = $state(50)
+  let resizingAxis = $state<'column' | 'row' | null>(null)
 
   const isInitializing = $derived($appState === 'initializing')
   const insufficientStorage = $derived(
@@ -89,8 +105,8 @@
   )
 
   const activeWebviewError = $derived(
-    view === 'connected' && activeConnectionId
-      ? (webviewErrors.get(activeConnectionId) ?? null)
+    view === 'connected' && activeTabId
+      ? (webviewErrors.get(activeTabId) ?? null)
       : null
   )
 
@@ -99,25 +115,89 @@
       (serverStarting && activeConnectionId === localConn?.id) ||
       (view === 'connected' &&
         !activeWebviewError &&
-        webviewLoading.get(activeConnectionId) === true)
+        webviewLoading.get(activeTabId) === true)
   )
 
   const retryActiveWebview = () => {
-    const wv = document.querySelector(
-      `webview[partition="persist:connection-${activeConnectionId}"]`
-    ) as any
+    const wv = document.querySelector(`webview[data-tab-id="${activeTabId}"]`) as any
     if (wv?.reload) {
-      webviewErrors.delete(activeConnectionId)
+      webviewErrors.delete(activeTabId)
       webviewErrors = new Map(webviewErrors)
       wv.reload()
     }
   }
 
   const openActiveInBrowser = () => {
-    const connUrl = openConnections.get(activeConnectionId)
-    if (connUrl) {
-      window.electronAPI.openInBrowser(connUrl)
+    if (activeTab?.url) {
+      window.electronAPI.openInBrowser(activeTab.url)
     }
+  }
+
+  const paneTabs = $derived(
+    [activeTabId, ...splitTabIds]
+      .filter((id, index, ids) => id && ids.indexOf(id) === index)
+      .slice(0, 4)
+      .map((id) => browserTabs.find((tab) => tab.id === id))
+      .filter(Boolean) as { id: string; connectionId: string; title: string; url: string }[]
+  )
+
+  const paneCount = $derived(paneTabs.length)
+
+  const splitGridStyle = $derived(
+    paneCount <= 1
+      ? 'grid-template-columns: 1fr; grid-template-rows: 1fr;'
+      : paneCount === 2
+        ? `grid-template-columns: ${splitColumn}% minmax(0, 1fr); grid-template-rows: 1fr;`
+        : `grid-template-columns: ${splitColumn}% minmax(0, 1fr); grid-template-rows: ${splitRow}% minmax(0, 1fr);`
+  )
+
+  const getPaneIndex = (tabId: string) => paneTabs.findIndex((tab) => tab.id === tabId)
+
+  const getPaneStyle = (tabId: string) => {
+    const index = getPaneIndex(tabId)
+    if (index === -1 || view !== 'connected') return 'display: none;'
+    if (paneCount <= 1) return 'display: flex; grid-column: 1 / 2; grid-row: 1 / 2;'
+    if (paneCount === 2) {
+      return `display: flex; grid-column: ${index + 1} / ${index + 2}; grid-row: 1 / 2;`
+    }
+    const column = (index % 2) + 1
+    const row = Math.floor(index / 2) + 1
+    return `display: flex; grid-column: ${column} / ${column + 1}; grid-row: ${row} / ${row + 1};`
+  }
+
+  const startResize = (axis: 'column' | 'row', event: MouseEvent) => {
+    event.preventDefault()
+    resizingAxis = axis
+    const container = document.querySelector('.split-surface') as HTMLElement | null
+    if (!container) return
+    const bounds = container.getBoundingClientRect()
+
+    const onMove = (moveEvent: MouseEvent) => {
+      if (axis === 'column') {
+        const ratio = ((moveEvent.clientX - bounds.left) / bounds.width) * 100
+        splitColumn = Math.max(22, Math.min(78, ratio))
+      } else {
+        const ratio = ((moveEvent.clientY - bounds.top) / bounds.height) * 100
+        splitRow = Math.max(22, Math.min(78, ratio))
+      }
+    }
+
+    const onUp = () => {
+      resizingAxis = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  const handleSplitDrop = (event: DragEvent) => {
+    event.preventDefault()
+    const tabId = event.dataTransfer?.getData('text/x-spark-tab-id')
+    if (!tabId) return
+    ;(window as any).__sparkTabDropHandled = true
+    onSplitTab(tabId)
   }
 
   // Attach load event listeners and IPC forwarding to webviews
@@ -132,18 +212,19 @@
       webviews.forEach((wv: any) => {
         if (wv._loadListenerAttached) return
         wv._loadListenerAttached = true
-        const connId = wv.getAttribute('partition')?.replace('persist:connection-', '') ?? ''
-        if (!connId) return
+        const tabId = wv.dataset.tabId ?? ''
+        const connId = wv.dataset.connectionId ?? ''
+        if (!tabId || !connId) return
 
         // Mark loading when navigation starts
         wv.addEventListener('did-start-loading', () => {
-          webviewLoading.set(connId, true)
+          webviewLoading.set(tabId, true)
           webviewLoading = new Map(webviewLoading)
         })
 
         // Clear loading when done
         wv.addEventListener('did-stop-loading', () => {
-          webviewLoading.set(connId, false)
+          webviewLoading.set(tabId, false)
           webviewLoading = new Map(webviewLoading)
         })
 
@@ -151,7 +232,7 @@
         wv.addEventListener('did-fail-load', (event: any) => {
           // Ignore sub-resource failures and aborted navigations (-3)
           if (event.errorCode === -3 || event.isMainFrame === false) return
-          webviewErrors.set(connId, {
+          webviewErrors.set(tabId, {
             code: event.errorCode,
             description: event.errorDescription || 'Unknown error',
             url: event.validatedURL || ''
@@ -160,16 +241,32 @@
         })
 
         // Clear error when a navigation succeeds (retry, redirect, etc.)
-        wv.addEventListener('did-navigate', () => {
-          if (webviewErrors.has(connId)) {
-            webviewErrors.delete(connId)
+        wv.addEventListener('did-navigate', (event: any) => {
+          if (webviewErrors.has(tabId)) {
+            webviewErrors.delete(tabId)
             webviewErrors = new Map(webviewErrors)
           }
+          if (event.url) onUpdateTab(tabId, { url: event.url })
+        })
+
+        wv.addEventListener('did-navigate-in-page', (event: any) => {
+          if (event.url) onUpdateTab(tabId, { url: event.url })
+        })
+
+        wv.addEventListener('page-title-updated', (event: any) => {
+          const title = event.title?.trim()
+          if (title) onUpdateTab(tabId, { title })
+        })
+
+        wv.addEventListener('new-window', (event: any) => {
+          event.preventDefault?.()
+          const url = event.url || wv.getURL?.()
+          if (url) onOpenNewTab(connId, url)
         })
 
         // Renderer process crash
         wv.addEventListener('crashed', () => {
-          webviewErrors.set(connId, {
+          webviewErrors.set(tabId, {
             code: -1,
             description: 'crashed',
             url: ''
@@ -288,21 +385,89 @@
 </script>
 
 <div
-  class="flex-1 flex flex-col min-w-0 overflow-clip bg-[#eee] dark:bg-[#111] border-t relative content-webview-container {sidebarOpen
+  class="webview-frame flex-1 flex flex-col min-w-0 overflow-clip bg-[#eee] dark:bg-[#111] border-t relative content-webview-container {sidebarOpen
     ? 'border-l border-black/[0.08] dark:border-white/[0.08] rounded-tl-xl'
     : 'border-black/[0.08] dark:border-white/[0.10]'}"
+  ondragover={(e) => {
+    if (e.dataTransfer?.types.includes('text/x-spark-tab-id')) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+    }
+  }}
+  ondrop={handleSplitDrop}
 >
-  <!-- Webviews — all open connections stay alive, only active one visible -->
-  {#each [...openConnections] as [connId, connUrl] (connId)}
-    <webview
-      src={connUrl}
-      class="flex-1 min-h-0 border-none"
-      style="display: {view === 'connected' && activeConnectionId === connId ? 'flex' : 'none'}"
-      partition="persist:connection-{connId}"
-      preload={contentPreloadPath}
-      allowpopups
-    ></webview>
-  {/each}
+  <!-- Webviews — all open tabs stay alive, only active one visible -->
+  {#if view === 'connected'}
+    <div class="split-surface absolute inset-0 grid gap-px bg-black/[0.06] dark:bg-white/[0.08]" style={splitGridStyle}>
+      {#each browserTabs as tab (tab.id)}
+        <div
+          class="relative min-w-0 min-h-0 flex-col bg-[#f7f7f8] dark:bg-[#0d0d0d] overflow-hidden"
+          style={getPaneStyle(tab.id)}
+        >
+          {#if paneCount > 1 && getPaneIndex(tab.id) !== -1}
+            <div
+              class="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-md bg-white/80 dark:bg-black/60 border border-black/[0.06] dark:border-white/[0.08] backdrop-blur px-1 py-0.5"
+            >
+              <span class="max-w-[140px] truncate text-[10px] opacity-50 px-1">{tab.title}</span>
+              {#if tab.id !== activeTabId}
+                <button
+                  class="h-5 w-5 rounded bg-transparent border-none opacity-45 hover:opacity-80 text-[#1d1d1f] dark:text-[#fafafa]"
+                  title={$i18n.t('tabs.focus')}
+                  aria-label={$i18n.t('tabs.focus')}
+                  onclick={() => {
+                    window.dispatchEvent(new CustomEvent('spark-tabs:switch', { detail: { tabId: tab.id } }))
+                  }}
+                >
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75L21 21m-9-3.75a6.75 6.75 0 110-13.5 6.75 6.75 0 010 13.5z" />
+                  </svg>
+                </button>
+              {/if}
+              {#if tab.id !== activeTabId}
+                <button
+                  class="h-5 w-5 rounded bg-transparent border-none opacity-45 hover:opacity-80 text-[#1d1d1f] dark:text-[#fafafa]"
+                  title={$i18n.t('tabs.unsplit')}
+                  aria-label={$i18n.t('tabs.unsplit')}
+                  onclick={() => onUnsplitTab(tab.id)}
+                >
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              {/if}
+            </div>
+          {/if}
+          <webview
+            src={tab.url}
+            class="flex-1 min-h-0 border-none"
+            style="display: flex;"
+            data-tab-id={tab.id}
+            data-connection-id={tab.connectionId}
+            partition="persist:connection-{tab.connectionId}"
+            preload={contentPreloadPath}
+            allowpopups
+          ></webview>
+        </div>
+      {/each}
+
+      {#if paneCount > 1}
+        <button
+          class="absolute top-0 bottom-0 z-20 w-1.5 -translate-x-1/2 cursor-col-resize border-none bg-transparent hover:bg-sky-400/40 {resizingAxis === 'column' ? 'bg-sky-400/50' : ''}"
+          style="left: {splitColumn}%"
+          aria-label={$i18n.t('tabs.resizeColumns')}
+          onmousedown={(e) => startResize('column', e)}
+        ></button>
+      {/if}
+      {#if paneCount > 2}
+        <button
+          class="absolute left-0 right-0 z-20 h-1.5 -translate-y-1/2 cursor-row-resize border-none bg-transparent hover:bg-sky-400/40 {resizingAxis === 'row' ? 'bg-sky-400/50' : ''}"
+          style="top: {splitRow}%"
+          aria-label={$i18n.t('tabs.resizeRows')}
+          onmousedown={(e) => startResize('row', e)}
+        ></button>
+      {/if}
+    </div>
+  {/if}
 
   <!-- Error overlay when webview fails to load -->
   {#if activeWebviewError}
