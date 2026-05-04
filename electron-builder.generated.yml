@@ -92,7 +92,7 @@ flatpak:
     - --filesystem=home
     - --talk-name=org.freedesktop.Notifications
     - --talk-name=org.freedesktop.portal.Desktop
-npmRebuild: true
+npmRebuild: false
 publish:
   provider: generic
   url: "https://chat.spark-ai.top/api/v1/configs/apps/updates/desktop/"

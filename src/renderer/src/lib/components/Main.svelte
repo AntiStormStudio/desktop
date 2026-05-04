@@ -11,6 +11,7 @@
     id: string
     connectionId: string
     title: string
+    initialUrl: string
     url: string
   }
 
@@ -76,10 +77,7 @@
   >
     <!-- Persistent top bar -->
     <div
-      class="top-chrome flex items-center shrink-0 drag-region border-b border-black/[0.08] dark:border-white/[0.08] bg-[#f5f5f7]/95 dark:bg-[#0a0a0a]/95 {$appInfo?.platform ===
-      'darwin'
-        ? 'h-10'
-        : 'h-9'}"
+      class="top-chrome flex items-center shrink-0 drag-region bg-[#f5f5f7]/95 dark:bg-[#0a0a0a]/95 h-10"
     >
       <div
         class="flex items-center gap-2 {$appInfo?.platform === 'darwin'
@@ -157,15 +155,16 @@
         {/if}
       </div>
 
-      <div class="flex-1 min-w-0 flex items-end self-stretch overflow-hidden">
-        <div class="flex min-w-0 items-end gap-1 overflow-x-auto no-scrollbar no-drag px-1 pb-[3px]">
+      <div class="flex-1 min-w-0 flex items-center self-stretch overflow-hidden">
+        <div class="tab-strip flex min-w-0 items-center gap-1 overflow-x-auto no-scrollbar no-drag px-1">
           {#if browserTabs.length > 0}
             {#each browserTabs as tab (tab.id)}
               <button
                 draggable="true"
-                class="group h-8 min-w-[132px] max-w-[220px] px-2.5 flex items-center gap-2 rounded-t-lg border border-transparent text-left text-[#1d1d1f] dark:text-[#fafafa] transition {tab.id ===
+                data-active={tab.id === activeTabId}
+                class="browser-tab group h-[26px] min-w-[132px] max-w-[220px] px-2 flex items-center gap-1.5 rounded-md border border-transparent text-left text-[#1d1d1f] dark:text-[#fafafa] transition {tab.id ===
                 activeTabId
-                  ? 'active-tab bg-white/85 dark:bg-white/[0.10] border-black/[0.08] dark:border-white/[0.08] shadow-sm'
+                  ? 'active-tab bg-white/85 dark:bg-white/[0.10]'
                   : 'bg-transparent opacity-55 hover:opacity-90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}"
                 onclick={() => sendTabCommand('spark-tabs:switch', { tabId: tab.id })}
                 ondragstart={(e) => {
@@ -196,14 +195,14 @@
                 }}
                 title={tab.title || $i18n.t('app.name')}
               >
-                <span class="h-2 w-2 shrink-0 rounded-full bg-emerald-400/80"></span>
-                <span class="min-w-0 flex-1 truncate text-[12px]">
+                <span class="tab-status-dot h-2 w-2 shrink-0 rounded-full bg-emerald-400/80"></span>
+                <span class="tab-title min-w-0 flex-1 truncate text-[12px]">
                   {tab.title || activeConnectionName || $i18n.t('app.name')}
                 </span>
                 <span
                   role="button"
                   tabindex="0"
-                  class="h-5 w-5 shrink-0 rounded-md flex items-center justify-center opacity-45 hover:opacity-90 hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
+                  class="tab-close-button h-5 w-5 shrink-0 rounded flex items-center justify-center opacity-45 hover:opacity-90 hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
                   title={$i18n.t('common.close')}
                   aria-label={$i18n.t('common.close')}
                   onclick={(e) => {
@@ -236,7 +235,7 @@
             </div>
           {/if}
           <button
-            class="h-7 w-7 mb-0.5 flex items-center justify-center rounded-md border-none bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-45 hover:opacity-90 hover:bg-black/[0.05] dark:hover:bg-white/[0.06]"
+            class="add-tab-button h-[26px] w-[26px] flex items-center justify-center rounded-md border-none bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-45 hover:opacity-90 hover:bg-black/[0.05] dark:hover:bg-white/[0.06]"
             onclick={() => sendTabCommand('spark-tabs:new')}
             title={$i18n.t('tabs.new')}
             aria-label={$i18n.t('tabs.new')}

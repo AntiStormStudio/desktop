@@ -2,7 +2,6 @@
 
 import crypto from 'crypto'
 import log from 'electron-log'
-import * as pty from 'node-pty'
 import {
   getPythonPath,
   getConfig,
@@ -16,12 +15,18 @@ import { ServiceLock, isProcessAlive } from './service-lock'
 
 // ─── State ──────────────────────────────────────────────
 
-let ptyProcess: pty.IPty | null = null
+let ptyProcess: any | null = null
 let pid: number | null = null
 let url: string | null = null
 let apiKey: string | null = null
 let status: string | null = null // null | starting | started | stopped | failed
 let logBuffer: string[] = []
+let ptyModule: any = null
+
+const getPty = async () => {
+  if (!ptyModule) ptyModule = await import('node-pty')
+  return ptyModule
+}
 
 const lock = new ServiceLock('open-terminal')
 
@@ -34,7 +39,7 @@ export const getOpenTerminalInfo = () => ({
   pid
 })
 
-export const getOpenTerminalPty = (): pty.IPty | null => ptyProcess
+export const getOpenTerminalPty = (): any | null => ptyProcess
 export const getOpenTerminalLog = (): string[] => logBuffer
 
 export const startOpenTerminal = async (
@@ -103,8 +108,9 @@ export const startOpenTerminal = async (
 
   log.info('Starting Open Terminal...', pythonPath, commandArgs.join(' '))
 
-  let spawned: pty.IPty
+  let spawned: any
   try {
+    const pty = await getPty()
     spawned = pty.spawn(pythonPath, commandArgs, {
       name: 'xterm-256color',
       cols: 200,

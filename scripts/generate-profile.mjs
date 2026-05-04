@@ -343,7 +343,7 @@ write(
     `snap:\n  artifactName: ${yamlValue(`${packageName}_\${arch}.\${ext}`)}\n` +
     `appImage:\n  artifactName: ${yamlValue(`${packageName}_\${arch}.\${ext}`)}\n` +
     `flatpak:\n  base: org.electronjs.Electron2.BaseApp\n  baseVersion: '23.08'\n  runtime: org.freedesktop.Platform\n  runtimeVersion: '23.08'\n  sdk: org.freedesktop.Sdk\n  artifactName: ${yamlValue(`${packageName}.flatpak`)}\n  finishArgs:\n    - --share=ipc\n    - --socket=x11\n    - --socket=wayland\n    - --socket=pulseaudio\n    - --share=network\n    - --device=dri\n    - --filesystem=home\n    - --talk-name=org.freedesktop.Notifications\n    - --talk-name=org.freedesktop.portal.Desktop\n` +
-    `npmRebuild: true\n` +
+    `npmRebuild: ${profile.features.allowLocalOpenWebUIInstall ? 'true' : 'false'}\n` +
     publishYaml
 )
 

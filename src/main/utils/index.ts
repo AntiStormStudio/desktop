@@ -557,14 +557,18 @@ export const uninstallPackage = (packageName: string): boolean => {
 
 // ─── Server Management ──────────────────────────────────
 
-import * as pty from 'node-pty'
-
 const serverPIDs: Set<number> = new Set()
 const serverLogs: Map<number, string[]> = new Map()
-let serverPtyProcesses: Map<number, pty.IPty> = new Map()
+let serverPtyProcesses: Map<number, any> = new Map()
+let ptyModule: any = null
+
+const getPty = async () => {
+  if (!ptyModule) ptyModule = await import('node-pty')
+  return ptyModule
+}
 
 export const getServerPIDs = (): number[] => Array.from(serverPIDs)
-export const getServerPty = (pid: number): pty.IPty | undefined => serverPtyProcesses.get(pid)
+export const getServerPty = (pid: number): any | undefined => serverPtyProcesses.get(pid)
 
 export const startServer = async (
   expose = false,
@@ -603,8 +607,9 @@ export const startServer = async (
   commandArgs.push('--port', availablePort.toString())
   log.info('Starting Open-WebUI server...', pythonPath, commandArgs.join(' '))
 
-  let ptyProcess: pty.IPty
+  let ptyProcess: any
   try {
+    const pty = await getPty()
     ptyProcess = pty.spawn(pythonPath, commandArgs, {
       name: 'xterm-256color',
       cols: 200,

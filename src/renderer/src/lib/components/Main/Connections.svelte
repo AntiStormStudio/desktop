@@ -13,6 +13,7 @@
     id: string
     connectionId: string
     title: string
+    initialUrl: string
     url: string
   }
 
@@ -72,6 +73,7 @@
     const tab: BrowserTab = {
       id: crypto.randomUUID(),
       connectionId,
+      initialUrl: url,
       url,
       title: title || conn?.name || $i18n.t('app.name')
     }

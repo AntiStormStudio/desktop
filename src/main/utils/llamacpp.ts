@@ -5,7 +5,6 @@ import * as path from 'path'
 import { execFileSync } from 'child_process'
 
 import * as tar from 'tar'
-import * as pty from 'node-pty'
 import log from 'electron-log'
 
 import { getConfig, setConfig, getInstallDir, portInUse, downloadFileWithProgress } from './index'
@@ -15,11 +14,17 @@ import { ServiceLock, isProcessAlive } from './service-lock'
 
 // ─── State ──────────────────────────────────────────────
 
-let ptyProcess: pty.IPty | null = null
+let ptyProcess: any | null = null
 let pid: number | null = null
 let url: string | null = null
 let status: string | null = null // null | setting-up | starting | started | stopped | failed
 let logBuffer: string[] = []
+let ptyModule: any = null
+
+const getPty = async () => {
+  if (!ptyModule) ptyModule = await import('node-pty')
+  return ptyModule
+}
 
 const lock = new ServiceLock('llamacpp')
 let binaryPath: string | null = null
@@ -61,7 +66,7 @@ export const getLlamaCppInfo = () => {
   return { url, status, pid, binaryPath, version }
 }
 
-export const getLlamaCppPty = (): pty.IPty | null => ptyProcess
+export const getLlamaCppPty = (): any | null => ptyProcess
 export const getLlamaCppLog = (): string[] => logBuffer
 
 // ─── Asset Resolution ───────────────────────────────────
@@ -504,8 +509,9 @@ export const startLlamaCpp = async (
 
   log.info('Starting llama-server:', binary, commandArgs.join(' '))
 
-  let spawned: pty.IPty
+  let spawned: any
   try {
+    const pty = await getPty()
     spawned = pty.spawn(binary, commandArgs, {
       name: 'xterm-256color',
       cols: 200,

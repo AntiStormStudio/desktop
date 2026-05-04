@@ -9,13 +9,21 @@
   import { APP_PROFILE } from '../../../profile'
   import landingVideo from '../../../../assets/landing.mp4'
 
+  type BrowserTab = {
+    id: string
+    connectionId: string
+    title: string
+    initialUrl?: string
+    url: string
+  }
+
   interface Props {
     sidebarOpen: boolean
     view: string
     activeTabId: string
     activeConnectionId: string
     connectingId: string
-    browserTabs: { id: string; connectionId: string; title: string; url: string }[]
+    browserTabs: BrowserTab[]
     splitTabIds: string[]
     localConn: any
     localInstalled: boolean
@@ -138,7 +146,7 @@
       .filter((id, index, ids) => id && ids.indexOf(id) === index)
       .slice(0, 4)
       .map((id) => browserTabs.find((tab) => tab.id === id))
-      .filter(Boolean) as { id: string; connectionId: string; title: string; url: string }[]
+      .filter(Boolean) as BrowserTab[]
   )
 
   const paneCount = $derived(paneTabs.length)
@@ -205,7 +213,7 @@
     // Fetch the content preload path once
     contentPreloadPath = await window.electronAPI.getContentPreloadPath()
 
-    const observer = new MutationObserver(() => {
+    const attachWebviews = () => {
       const container = document.querySelector('.content-webview-container')
       if (!container) return
       const webviews = container.querySelectorAll('webview')
@@ -373,21 +381,24 @@
           }
         })
       })
-    })
+    }
+
+    const observer = new MutationObserver(attachWebviews)
 
     const target = document.querySelector('.content-webview-container')
     if (target) {
       observer.observe(target, { childList: true, subtree: true })
     }
+    attachWebviews()
 
     return () => observer.disconnect()
   })
 </script>
 
 <div
-  class="webview-frame flex-1 flex flex-col min-w-0 overflow-clip bg-[#eee] dark:bg-[#111] border-t relative content-webview-container {sidebarOpen
-    ? 'border-l border-black/[0.08] dark:border-white/[0.08] rounded-tl-xl'
-    : 'border-black/[0.08] dark:border-white/[0.10]'}"
+  class="webview-frame flex-1 flex flex-col min-w-0 overflow-clip bg-[#eee] dark:bg-[#111] relative content-webview-container {sidebarOpen
+    ? 'border-l border-black/[0.08] dark:border-white/[0.08]'
+    : ''}"
   ondragover={(e) => {
     if (e.dataTransfer?.types.includes('text/x-spark-tab-id')) {
       e.preventDefault()
@@ -398,15 +409,21 @@
 >
   <!-- Webviews — all open tabs stay alive, only active one visible -->
   {#if view === 'connected'}
-    <div class="split-surface absolute inset-0 grid gap-px bg-black/[0.06] dark:bg-white/[0.08]" style={splitGridStyle}>
+    <div
+      class="split-surface absolute inset-0 grid gap-0"
+      style={splitGridStyle}
+      data-pane-count={paneCount}
+    >
       {#each browserTabs as tab (tab.id)}
         <div
-          class="relative min-w-0 min-h-0 flex-col bg-[#f7f7f8] dark:bg-[#0d0d0d] overflow-hidden"
+          class="split-pane relative min-w-0 min-h-0 flex-col bg-[#f7f7f8] dark:bg-[#0d0d0d] overflow-hidden"
           style={getPaneStyle(tab.id)}
+          data-active={tab.id === activeTabId}
+          data-pane-index={getPaneIndex(tab.id)}
         >
           {#if paneCount > 1 && getPaneIndex(tab.id) !== -1}
             <div
-              class="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-md bg-white/80 dark:bg-black/60 border border-black/[0.06] dark:border-white/[0.08] backdrop-blur px-1 py-0.5"
+              class="split-pane-toolbar absolute right-2 top-2 z-10 flex items-center gap-1 rounded-md bg-white/80 dark:bg-black/60 border border-black/[0.06] dark:border-white/[0.08] backdrop-blur px-1 py-0.5"
             >
               <span class="max-w-[140px] truncate text-[10px] opacity-50 px-1">{tab.title}</span>
               {#if tab.id !== activeTabId}
@@ -438,8 +455,8 @@
             </div>
           {/if}
           <webview
-            src={tab.url}
-            class="flex-1 min-h-0 border-none"
+            src={tab.initialUrl || tab.url}
+            class="flex-1 min-h-0 w-full h-full border-none"
             style="display: flex;"
             data-tab-id={tab.id}
             data-connection-id={tab.connectionId}
@@ -452,7 +469,7 @@
 
       {#if paneCount > 1}
         <button
-          class="absolute top-0 bottom-0 z-20 w-1.5 -translate-x-1/2 cursor-col-resize border-none bg-transparent hover:bg-sky-400/40 {resizingAxis === 'column' ? 'bg-sky-400/50' : ''}"
+          class="split-resize-handle split-resize-handle-column absolute top-0 bottom-0 z-20 w-2.5 -translate-x-1/2 cursor-col-resize border-none bg-transparent {resizingAxis === 'column' ? 'is-resizing' : ''}"
           style="left: {splitColumn}%"
           aria-label={$i18n.t('tabs.resizeColumns')}
           onmousedown={(e) => startResize('column', e)}
@@ -460,7 +477,7 @@
       {/if}
       {#if paneCount > 2}
         <button
-          class="absolute left-0 right-0 z-20 h-1.5 -translate-y-1/2 cursor-row-resize border-none bg-transparent hover:bg-sky-400/40 {resizingAxis === 'row' ? 'bg-sky-400/50' : ''}"
+          class="split-resize-handle split-resize-handle-row absolute left-0 right-0 z-20 h-2.5 -translate-y-1/2 cursor-row-resize border-none bg-transparent {resizingAxis === 'row' ? 'is-resizing' : ''}"
           style="top: {splitRow}%"
           aria-label={$i18n.t('tabs.resizeRows')}
           onmousedown={(e) => startResize('row', e)}
