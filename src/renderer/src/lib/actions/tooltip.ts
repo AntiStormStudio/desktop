@@ -13,9 +13,7 @@ export function tooltip(node: HTMLElement, content: string | Partial<Props>) {
   return {
     update(newContent: string | Partial<Props>) {
       const newOptions: Partial<Props> =
-        typeof newContent === 'string'
-          ? { content: newContent }
-          : newContent
+        typeof newContent === 'string' ? { content: newContent } : newContent
       instance.setProps(newOptions)
     },
     destroy() {

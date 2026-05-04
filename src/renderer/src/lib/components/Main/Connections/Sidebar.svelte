@@ -2,6 +2,7 @@
   import { fly, fade } from 'svelte/transition'
   import { connections, config, appInfo, serverInfo } from '../../../stores'
   import i18n from '../../../i18n'
+  import { APP_PROFILE } from '../../../profile'
 
   interface Props {
     activeConnectionId: string
@@ -72,35 +73,38 @@
     <span class="text-[10px] tracking-wider uppercase opacity-60"
       >{$i18n.t('sidebar.connections')}</span
     >
-    <button
-      class="opacity-25 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] leading-none"
-      onclick={() => {
-        onAddView()
-      }}
-      title={$i18n.t('sidebar.addConnection')}
-    >
-      <svg
-        class="w-[14px] h-[14px]"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        stroke-width="1.5"
+    {#if APP_PROFILE.features.allowUserRemoteOpenWebUI}
+      <button
+        class="opacity-25 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] leading-none"
+        onclick={() => {
+          onAddView()
+        }}
+        title={$i18n.t('sidebar.addConnection')}
       >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-      </svg>
-    </button>
+        <svg
+          class="w-[14px] h-[14px]"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+      </button>
+    {/if}
   </div>
 
   <!-- Connection list -->
   <div class="flex-1 min-h-0 overflow-y-auto px-2">
     <!-- Pinned: Open WebUI (local) -->
-    {#if localConn && localInstalled}
+    {#if APP_PROFILE.features.allowLocalOpenWebUIInstall && localConn && localInstalled}
       {@const isServerLoading =
         connectingId === localConn.id ||
         serverStatus === 'starting' ||
         (serverStatus === 'running' && !serverReachable)}
       <div
-        class="w-full px-2.5 py-1.5 rounded-xl group flex items-center gap-2 transition-colors cursor-pointer {activeConnectionId === localConn.id
+        class="w-full px-2.5 py-1.5 rounded-xl group flex items-center gap-2 transition-colors cursor-pointer {activeConnectionId ===
+        localConn.id
           ? 'bg-black/[0.08] dark:bg-white/[0.08]'
           : 'hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}"
         role="button"
@@ -146,7 +150,7 @@
             class="text-[12px] {activeConnectionId === localConn.id
               ? 'font-medium opacity-100'
               : 'opacity-70'} transition-opacity truncate flex-1 min-w-0"
-            >{localConn.name ?? 'Open WebUI'}</span
+            >{localConn.name ?? APP_PROFILE.brand.serviceName}</span
           >
         {/if}
 
@@ -184,7 +188,7 @@
                   onclick={(e) => {
                     e.stopPropagation()
                     menuOpenId = null
-                    startRename(localConn.id, localConn.name ?? 'Open WebUI')
+                    startRename(localConn.id, localConn.name ?? APP_PROFILE.brand.serviceName)
                   }}
                 >
                   <svg
@@ -232,7 +236,7 @@
       </div>
     {/if}
 
-    {#if localConn && localInstalled && remoteConnections.length > 0}
+    {#if APP_PROFILE.features.allowLocalOpenWebUIInstall && localConn && localInstalled && remoteConnections.length > 0}
       <div class="my-1 mx-2 border-t border-black/[0.04] dark:border-white/[0.04]"></div>
     {/if}
 

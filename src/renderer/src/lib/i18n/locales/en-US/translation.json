@@ -1,7 +1,6 @@
 {
-  "app.name": "Open WebUI",
-  "app.desktop": "Open WebUI Desktop",
-
+  "app.name": "{{brandName}}",
+  "app.desktop": "{{desktopName}}",
   "common.loading": "Loading…",
   "common.cancel": "Cancel",
   "common.close": "Close",
@@ -46,8 +45,6 @@
   "common.unknown": "Unknown",
   "common.experimental": "Experimental",
   "common.copied": "✓",
-
-
   "setup.newConnection": "New Connection",
   "setup.newConnectionDesc": "Connect to a remote Open WebUI server.",
   "setup.orInstallLocally": "Or install locally →",
@@ -61,7 +58,6 @@
   "setup.urlPlaceholder": "e.g. https://your-server.com",
   "setup.preparingEnvironment": "Preparing environment…",
   "setup.settingUp": "Setting up…",
-
   "setup.install.title": "Install locally.",
   "setup.install.description": "Download and run Open WebUI on this machine.",
   "setup.install.continue": "Continue",
@@ -72,12 +68,10 @@
   "setup.install.installLocation": "Install location",
   "setup.install.installLocationDesc": "Where data, models, and runtimes will be stored",
   "setup.install.changeLocation": "Change",
-
   "error.notEnoughDiskSpace": "Not enough disk space",
   "error.diskSpaceDetail": "At least 5 GB is required. Only {{available}} GB available.",
   "error.installFailedGeneric": "Installation failed. Please check your connection and try again.",
   "error.somethingWentWrong": "Something went wrong. Please try again.",
-
   "setup.connectionManager.connections": "Connections",
   "setup.connectionManager.noConnections": "No connections",
   "setup.connectionManager.addConnection": "+ Add connection",
@@ -88,7 +82,6 @@
   "setup.connectionManager.add": "Add",
   "setup.connectionManager.unreachable": "Unreachable",
   "setup.connectionManager.failed": "Failed",
-
   "main.openWebUI": "Open WebUI",
   "main.selectConnection": "Select a connection to get started",
   "main.heroDescription": "Connect to an Open WebUI server, or set one up on this machine.",
@@ -102,11 +95,9 @@
   "main.getStarted.continue": "Continue",
   "main.notEnoughDiskSpace": "Not enough disk space",
   "main.diskSpaceRequired": "At least 5 GB is required. Only {{available}} GB available.",
-
   "main.install.startingServer": "Starting server…",
   "main.install.settingUpConnection": "Setting up connection…",
   "main.install.launchingOpenWebUI": "Launching Open WebUI…",
-
   "sidebar.connections": "Connections",
   "sidebar.addConnection": "Add connection",
   "sidebar.openInBrowser": "Open in Browser",
@@ -115,7 +106,6 @@
   "sidebar.llamaCpp": "llama.cpp",
   "sidebar.settings": "Settings",
   "sidebar.github": "GitHub",
-
   "sidebar.tooltip.closeSidebar": "Close sidebar",
   "sidebar.tooltip.openSidebar": "Open sidebar",
   "sidebar.tooltip.showLogs": "Show logs",
@@ -127,19 +117,15 @@
   "sidebar.tooltip.startLlamaServer": "Start llama-server",
   "sidebar.tooltip.stopOpenTerminal": "Stop Open Terminal",
   "sidebar.tooltip.stopLlamaServer": "Stop llama-server",
-
   "logs.openTerminalLogs": "Open Terminal Logs",
   "logs.llamaCppLogs": "llama.cpp Logs",
   "logs.copyLogs": "Copy logs",
-
   "statusBar.local": "Local",
   "statusBar.server": "Open WebUI",
   "statusBar.serverRunning": "Open WebUI is running",
   "statusBar.serverStopped": "Open WebUI is not running",
-
   "settings.title": "Settings",
   "settings.closeSettings": "Close settings",
-
   "settings.tabs.general": "General",
   "settings.tabs.openwebui": "Open WebUI",
   "settings.tabs.terminal": "Open Terminal",
@@ -147,7 +133,6 @@
   "settings.tabs.models": "Models",
   "settings.tabs.connections": "Connections",
   "settings.tabs.about": "About",
-
   "settings.general.defaultConnection": "Default connection",
   "settings.general.defaultConnectionDesc": "Connection used on launch",
   "settings.general.launchAtLogin": "Launch at login",
@@ -178,7 +163,6 @@
   "settings.general.installLocation": "Install location",
   "settings.general.installLocationDesc": "Root directory for Python, models, and runtimes",
   "settings.general.installLocationNote": "Changing this requires reinstalling components",
-
   "settings.openwebui.notInstalled": "Not installed",
   "settings.openwebui.notInstalledDesc": "Set up a local Open WebUI server",
   "settings.openwebui.server": "Server",
@@ -202,7 +186,6 @@
   "settings.openwebui.toggleStartOnLaunch": "Toggle start on launch",
   "settings.openwebui.toggleServeOnLocalNetwork": "Toggle serve on local network",
   "settings.openwebui.toggleAutoUpdate": "Toggle auto-update",
-
   "settings.terminal.notInstalled": "Not installed",
   "settings.terminal.notInstalledDesc": "Enable terminal access for your AI models",
   "settings.terminal.server": "Server",
@@ -222,7 +205,6 @@
   "settings.terminal.uninstallDesc": "Remove Open Terminal package",
   "settings.terminal.uninstallConfirm": "This will stop Open Terminal and remove the package. Continue?",
   "settings.terminal.toggleStartOnLaunch": "Toggle auto-start Open Terminal",
-
   "settings.inference.llamaServer": "llama-server",
   "settings.inference.llamaServerDesc": "Local inference runtime powered by llama.cpp",
   "settings.inference.settingUp": "Setting up",
@@ -253,7 +235,6 @@
   "settings.inference.uninstallConfirm": "This will stop llama-server and remove all downloaded binaries. Continue?",
   "settings.inference.notInstalled": "llama.cpp is not installed",
   "settings.inference.notInstalledDesc": "Download and set up llama.cpp for local model inference",
-
   "settings.models.downloadedModels": "Downloaded Models",
   "settings.models.noModels": "No models downloaded yet",
   "settings.models.downloadFromHF": "Download from Hugging Face",
@@ -268,10 +249,8 @@
   "settings.models.openModelsFolder": "Open Models Folder",
   "settings.models.modelsDirectory": "Models Directory",
   "settings.models.modelsHint": "You can also add GGUF files directly to this folder. They'll be auto-detected by llama-server.",
-
   "settings.connections.remove": "Remove",
   "settings.connections.noConnections": "No connections",
-
   "settings.about.desktopVersion": "Desktop Version",
   "settings.about.openWebuiVersion": "Open WebUI Version",
   "settings.about.openTerminalVersion": "Open Terminal Version",
@@ -289,6 +268,24 @@
   "settings.about.whatsNew": "What's New",
   "settings.about.noChangelog": "No changelog entries yet.",
   "settings.about.viewOnGithub": "View on GitHub →",
-  "settings.about.copyright": "Copyright (c) 2026 Open WebUI Inc. All rights reserved.",
-  "settings.about.createdBy": "Created by Timothy J. Baek"
+  "settings.about.copyright": "Copyright (c) 2026 {{brandName}}. All rights reserved.",
+  "settings.about.createdBy": "Created by Timothy J. Baek",
+  "setup.install.localInstallDisabled": "Local installation is disabled in this build.",
+  "setup.connectionManager.addDisabled": "Adding remote servers is disabled in this build.",
+  "settings.general.clipboardAutoPaste": "Clipboard Auto-Paste",
+  "settings.general.clipboardAutoPasteDesc": "Automatically paste clipboard contents into Spotlight",
+  "settings.general.toggleClipboardAutoPaste": "Toggle clipboard auto-paste",
+  "settings.general.voiceInput": "Voice Input",
+  "settings.general.voiceInputDesc": "Enable global push-to-talk voice transcription",
+  "settings.general.toggleVoiceInput": "Toggle voice input",
+  "settings.general.voiceInputShortcut": "Voice Input Shortcut",
+  "settings.general.voiceInputShortcutDesc": "Toggle microphone recording from anywhere",
+  "settings.general.pressKeyCombination": "Press a key combination…",
+  "settings.general.pressKeys": "Press keys…",
+  "settings.general.call": "Call",
+  "settings.general.callDesc": "Enable global shortcut to start a voice/video call",
+  "settings.general.toggleCallShortcut": "Toggle call shortcut",
+  "settings.general.callShortcut": "Call Shortcut",
+  "settings.general.callShortcutDesc": "Start a call from anywhere",
+  "main.install.waitingForServer": "Waiting for server…"
 }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fade } from 'svelte/transition'
   import i18n from '../../i18n'
+  import { APP_PROFILE } from '../../profile'
 
   import General from './Settings/General.svelte'
   import OpenWebUI from './Settings/OpenWebUI.svelte'
@@ -58,6 +59,16 @@
       icon: 'M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z'
     }
   ]
+
+  const visibleTabs = $derived(
+    tabs.filter((tab) => tab.id !== 'openwebui' || APP_PROFILE.features.allowLocalOpenWebUIInstall)
+  )
+
+  $effect(() => {
+    if (!visibleTabs.some((tab) => tab.id === settingsTab)) {
+      settingsTab = visibleTabs[0]?.id ?? 'general'
+    }
+  })
 </script>
 
 <div
@@ -74,7 +85,7 @@
     </div>
 
     <div class="flex flex-col gap-0.5 px-1">
-      {#each tabs as tab}
+      {#each visibleTabs as tab}
         <button
           class="flex items-center gap-2 px-2.5 py-[6px] rounded-2xl text-[12px] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] text-left w-full {settingsTab ===
           tab.id
@@ -106,7 +117,7 @@
       class="flex items-center justify-between px-8 pt-5 pb-3 border-b border-black/[0.04] dark:border-white/[0.04]"
     >
       <span class="text-[15px] opacity-80 font-medium"
-        >{tabs.find((t) => t.id === settingsTab)?.label() ?? settingsTab}</span
+        >{visibleTabs.find((t) => t.id === settingsTab)?.label() ?? settingsTab}</span
       >
       <button
         class="opacity-30 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"

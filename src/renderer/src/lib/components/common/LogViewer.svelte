@@ -12,13 +12,7 @@
     onResize?: (cols: number, rows: number) => void
   }
 
-  let {
-    connect,
-    disconnect,
-    readonly = false,
-    onWrite,
-    onResize
-  }: Props = $props()
+  let { connect, disconnect, readonly = false, onWrite, onResize }: Props = $props()
 
   let containerEl: HTMLDivElement | undefined = $state()
   let term: Terminal | null = null
@@ -102,7 +96,4 @@
   })
 </script>
 
-<div
-  class="absolute inset-0 px-3 py-2 bg-[#0a0a0a]"
-  bind:this={containerEl}
-></div>
+<div class="absolute inset-0 px-3 py-2 bg-[#0a0a0a]" bind:this={containerEl}></div>

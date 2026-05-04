@@ -13,16 +13,12 @@
 
   // Extract available GB from appState like 'insufficient-storage:2.3'
   const availableGB = $derived(
-    $appState?.startsWith('insufficient-storage:')
-      ? $appState.split(':')[1]
-      : null
+    $appState?.startsWith('insufficient-storage:') ? $appState.split(':')[1] : null
   )
 
   // Extract error message from appState like 'install-failed:message'
   const installFailedMsg = $derived(
-    $appState?.startsWith('install-failed:')
-      ? $appState.substring('install-failed:'.length)
-      : null
+    $appState?.startsWith('install-failed:') ? $appState.substring('install-failed:'.length) : null
   )
 
   const retryCheck = async () => {
@@ -49,7 +45,9 @@
   }
 
   onMount(() => {
-    setTimeout(() => { visible = true }, 100)
+    setTimeout(() => {
+      visible = true
+    }, 100)
     if (videoElement) {
       videoElement.play().catch(() => {})
     }
@@ -57,7 +55,10 @@
 </script>
 
 {#if visible}
-  <div class="h-full w-full relative overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]" in:fade={{ duration: 500 }}>
+  <div
+    class="h-full w-full relative overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]"
+    in:fade={{ duration: 500 }}
+  >
     <!-- Video background -->
     <div class="absolute inset-0 overflow-hidden">
       <video
@@ -81,7 +82,9 @@
             <div class="text-sm text-red-400 opacity-80">
               {$i18n.t('error.notEnoughDiskSpace')}
             </div>
-            <div class="text-[11px] text-[#1d1d1f] dark:text-[#fafafa] opacity-30 max-w-[260px] leading-relaxed">
+            <div
+              class="text-[11px] text-[#1d1d1f] dark:text-[#fafafa] opacity-30 max-w-[260px] leading-relaxed"
+            >
               {$i18n.t('error.diskSpaceDetail', { available: availableGB })}
             </div>
             <button
@@ -96,7 +99,9 @@
             <div class="text-sm text-red-400 opacity-80">
               {$i18n.t('error.installFailedGeneric')}
             </div>
-            <div class="text-[11px] text-[#1d1d1f] dark:text-[#fafafa] opacity-30 max-w-[280px] leading-relaxed">
+            <div
+              class="text-[11px] text-[#1d1d1f] dark:text-[#fafafa] opacity-30 max-w-[280px] leading-relaxed"
+            >
               {installError || installFailedMsg}
             </div>
             <button
@@ -112,7 +117,9 @@
               {$i18n.t('setup.preparingEnvironment')}
             </div>
             {#if $serverInfo?.status}
-              <div class="text-[11px] text-[#1d1d1f] dark:text-[#fafafa] opacity-25 max-w-[220px] leading-relaxed">
+              <div
+                class="text-[11px] text-[#1d1d1f] dark:text-[#fafafa] opacity-25 max-w-[220px] leading-relaxed"
+              >
                 {$serverInfo.status}
               </div>
             {/if}

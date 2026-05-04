@@ -62,6 +62,7 @@ const api = {
   getDefaultDataPath: () => ipcRenderer.invoke('app:defaultDataPath'),
   getInstallDir: () => ipcRenderer.invoke('app:installDir'),
   getContentPreloadPath: () => ipcRenderer.invoke('app:contentPreloadPath'),
+  invokeDesktopBridge: (request: any) => ipcRenderer.invoke('desktop:bridge:invoke', request),
   getDiskSpace: () => ipcRenderer.invoke('system:diskSpace'),
   getLaunchAtLogin: () => ipcRenderer.invoke('app:launchAtLogin:get'),
   setLaunchAtLogin: (enabled: boolean) => ipcRenderer.invoke('app:launchAtLogin:set', enabled),
@@ -170,7 +171,8 @@ const api = {
   getConnections: () => ipcRenderer.invoke('connections:list'),
   addConnection: (connection: any) => ipcRenderer.invoke('connections:add', connection),
   removeConnection: (id: string) => ipcRenderer.invoke('connections:remove', id),
-  updateConnection: (id: string, updates: any) => ipcRenderer.invoke('connections:update', id, updates),
+  updateConnection: (id: string, updates: any) =>
+    ipcRenderer.invoke('connections:update', id, updates),
   setDefaultConnection: (id: string) => ipcRenderer.invoke('connections:setDefault', id),
   connectTo: (id: string) => ipcRenderer.invoke('connections:connect', id),
   validateUrl: (url: string) => ipcRenderer.invoke('validate:url', url),

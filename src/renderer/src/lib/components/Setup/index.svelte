@@ -3,11 +3,17 @@
   import { fly, fade } from 'svelte/transition'
   import { appState, connections, config } from '../../stores'
   import i18n from '../../i18n'
+  import { APP_PROFILE } from '../../profile'
   import LocalInstall from './LocalInstall.svelte'
 
   import logoImage from '../../assets/images/splash.png'
 
-  let view = $state('main') // main | install
+  let view = $state(
+    APP_PROFILE.features.defaultLandingMode === 'local' &&
+      APP_PROFILE.features.allowLocalOpenWebUIInstall
+      ? 'install'
+      : 'main'
+  ) // main | install
   let url = $state('')
   let connecting = $state(false)
   let error = $state('')
@@ -15,7 +21,9 @@
   let videoElement: HTMLVideoElement
 
   onMount(() => {
-    setTimeout(() => { mounted = true }, 100)
+    setTimeout(() => {
+      mounted = true
+    }, 100)
     if (videoElement) {
       videoElement.play().catch(() => {})
     }
@@ -29,7 +37,11 @@
     connecting = true
     try {
       const valid = await window.electronAPI.validateUrl(u)
-      if (!valid) { error = $i18n.t('setup.couldNotReachServer'); connecting = false; return }
+      if (!valid) {
+        error = $i18n.t('setup.couldNotReachServer')
+        connecting = false
+        return
+      }
       await window.electronAPI.addConnection({
         id: crypto.randomUUID(),
         name: new URL(u).hostname,
@@ -49,7 +61,9 @@
   }
 </script>
 
-<div class="h-full w-full relative overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]">
+<div
+  class="h-full w-full relative overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]"
+>
   <!-- Video background -->
   <div class="absolute inset-0 overflow-hidden">
     <video
@@ -95,8 +109,18 @@
               >
                 {connecting ? $i18n.t('common.connecting') : $i18n.t('common.connect')}
                 {#if !connecting}
-                  <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  <svg
+                    class="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M17 8l4 4m0 0l-4 4m4-4H3"
+                    />
                   </svg>
                 {/if}
               </button>
@@ -107,22 +131,20 @@
             {/if}
           </div>
 
-          <div class="mt-6">
-            <button
-              class="text-sm opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
-              onclick={() => (view = 'install')}
-            >
-              {$i18n.t('setup.orInstallLocally')}
-            </button>
-          </div>
+          {#if APP_PROFILE.features.allowLocalOpenWebUIInstall}
+            <div class="mt-6">
+              <button
+                class="text-sm opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
+                onclick={() => (view = 'install')}
+              >
+                {$i18n.t('setup.orInstallLocally')}
+              </button>
+            </div>
+          {/if}
         </div>
-
       {:else if view === 'install'}
         <div class="max-w-sm">
-          <LocalInstall
-            onBack={() => (view = 'main')}
-            onComplete={() => appState.set('ready')}
-          />
+          <LocalInstall onBack={() => (view = 'main')} onComplete={() => appState.set('ready')} />
         </div>
       {/if}
     </div>

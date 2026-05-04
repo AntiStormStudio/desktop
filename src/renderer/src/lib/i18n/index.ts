@@ -3,6 +3,7 @@ import resourcesToBackend from 'i18next-resources-to-backend'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import type { i18n as i18nType } from 'i18next'
 import { writable } from 'svelte/store'
+import { APP_PROFILE } from '../profile'
 
 const createI18nStore = (i18n: i18nType) => {
   const i18nWritable = writable(i18n)
@@ -60,7 +61,12 @@ export const initI18n = (defaultLocale?: string | undefined) => {
       ns: 'translation',
       returnEmptyString: false,
       interpolation: {
-        escapeValue: false // not needed for svelte as it escapes by default
+        escapeValue: false, // not needed for svelte as it escapes by default
+        defaultVariables: {
+          brandName: APP_PROFILE.brand.name,
+          desktopName: APP_PROFILE.brand.desktopName,
+          serviceName: APP_PROFILE.brand.serviceName
+        }
       }
     })
 

@@ -339,29 +339,60 @@
       <div class="text-[13px] opacity-70">{$i18n.t('settings.general.appearance')}</div>
       <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.appearanceDesc')}</div>
     </div>
-    <div class="grid grid-cols-3 items-center gap-0.5 rounded-2xl bg-black/[0.04] dark:bg-white/[0.06] p-1 text-[11px]">
+    <div
+      class="grid grid-cols-3 items-center gap-0.5 rounded-2xl bg-black/[0.04] dark:bg-white/[0.06] p-1 text-[11px]"
+    >
       <button
-        class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme === 'system' ? 'bg-black/[0.08] dark:bg-white/[0.12] text-[#1d1d1f] dark:text-[#fafafa]' : 'bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-40 hover:opacity-70'}"
+        class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme ===
+        'system'
+          ? 'bg-black/[0.08] dark:bg-white/[0.12] text-[#1d1d1f] dark:text-[#fafafa]'
+          : 'bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-40 hover:opacity-70'}"
         onclick={() => applyTheme('system')}
       >
         {$i18n.t('common.auto')}
       </button>
       <button
-        class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme === 'light' ? 'bg-black/[0.08] dark:bg-white/[0.12] text-[#1d1d1f] dark:text-[#fafafa]' : 'bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-40 hover:opacity-70'}"
+        class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme ===
+        'light'
+          ? 'bg-black/[0.08] dark:bg-white/[0.12] text-[#1d1d1f] dark:text-[#fafafa]'
+          : 'bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-40 hover:opacity-70'}"
         onclick={() => applyTheme('light')}
         aria-label={$i18n.t('settings.general.light')}
       >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+        <svg
+          class="w-3.5 h-3.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"
+          />
         </svg>
       </button>
       <button
-        class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme === 'dark' ? 'bg-black/[0.08] dark:bg-white/[0.12] text-[#1d1d1f] dark:text-[#fafafa]' : 'bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-40 hover:opacity-70'}"
+        class="flex h-6 w-16 items-center justify-center rounded-xl border-none transition {theme ===
+        'dark'
+          ? 'bg-black/[0.08] dark:bg-white/[0.12] text-[#1d1d1f] dark:text-[#fafafa]'
+          : 'bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-40 hover:opacity-70'}"
         onclick={() => applyTheme('dark')}
         aria-label={$i18n.t('settings.general.dark')}
       >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+        <svg
+          class="w-3.5 h-3.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"
+          />
         </svg>
       </button>
     </div>
@@ -370,7 +401,9 @@
   <div class="py-4 flex items-center justify-between">
     <div>
       <div class="text-[13px] opacity-70">{$i18n.t('settings.general.defaultConnection')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.defaultConnectionDesc')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">
+        {$i18n.t('settings.general.defaultConnectionDesc')}
+      </div>
     </div>
     <select
       class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60"
@@ -388,7 +421,9 @@
   <div class="py-4 flex items-center justify-between">
     <div>
       <div class="text-[13px] opacity-70">{$i18n.t('settings.general.launchAtLogin')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.launchAtLoginDesc')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">
+        {$i18n.t('settings.general.launchAtLoginDesc')}
+      </div>
     </div>
     <Switch
       checked={launchAtLogin}
@@ -403,7 +438,9 @@
   <div class="py-4 flex items-center justify-between">
     <div>
       <div class="text-[13px] opacity-70">{$i18n.t('settings.general.runInBackground')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.runInBackgroundDesc')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">
+        {$i18n.t('settings.general.runInBackgroundDesc')}
+      </div>
     </div>
     <Switch
       checked={runInBackground}
@@ -432,8 +469,8 @@
         bind:this={shortcutInputEl}
         class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
           {recording
-            ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
-            : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
+          ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
+          : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
         onclick={() => {
           recording = true
           shortcutInputEl?.focus()
@@ -462,7 +499,13 @@
             config.set(await window.electronAPI.getConfig())
           }}
         >
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <svg
+            class="w-3 h-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -486,8 +529,8 @@
         bind:this={spotlightShortcutInputEl}
         class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
           {spotlightRecording
-            ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
-            : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
+          ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
+          : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
         onclick={() => {
           spotlightRecording = true
           spotlightShortcutInputEl?.focus()
@@ -516,7 +559,13 @@
             config.set(await window.electronAPI.getConfig())
           }}
         >
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <svg
+            class="w-3 h-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -526,12 +575,14 @@
 
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">Clipboard Auto-Paste</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Automatically paste clipboard contents into Spotlight</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.clipboardAutoPaste')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">
+        {$i18n.t('settings.general.clipboardAutoPasteDesc')}
+      </div>
     </div>
     <Switch
       checked={spotlightClipboardPaste}
-      label="Toggle clipboard auto-paste"
+      label={$i18n.t('settings.general.toggleClipboardAutoPaste')}
       onchange={async (value) => {
         spotlightClipboardPaste = value
         await window.electronAPI.setConfig({ spotlightClipboardPaste: value })
@@ -542,12 +593,12 @@
 
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">Voice Input</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Enable global push-to-talk voice transcription</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.voiceInput')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.voiceInputDesc')}</div>
     </div>
     <Switch
       checked={voiceInputEnabled}
-      label="Toggle voice input"
+      label={$i18n.t('settings.general.toggleVoiceInput')}
       onchange={async (value) => {
         voiceInputEnabled = value
         await window.electronAPI.setConfig({ voiceInputEnabled: value })
@@ -557,69 +608,75 @@
   </div>
 
   {#if voiceInputEnabled}
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px] opacity-70">Voice Input Shortcut</div>
-      <div class="text-[11px] opacity-25 mt-0.5">
-        {#if voiceInputRecording}
-          Press a key combination…
-        {:else}
-          Toggle microphone recording from anywhere
-        {/if}
+    <div class="py-4 flex items-center justify-between">
+      <div>
+        <div class="text-[13px] opacity-70">{$i18n.t('settings.general.voiceInputShortcut')}</div>
+        <div class="text-[11px] opacity-25 mt-0.5">
+          {#if voiceInputRecording}
+            {$i18n.t('settings.general.pressKeyCombination')}
+          {:else}
+            {$i18n.t('settings.general.voiceInputShortcutDesc')}
+          {/if}
+        </div>
       </div>
-    </div>
-    <div class="flex items-center gap-1.5">
-      <button
-        bind:this={voiceInputShortcutInputEl}
-        class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
+      <div class="flex items-center gap-1.5">
+        <button
+          bind:this={voiceInputShortcutInputEl}
+          class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
           {voiceInputRecording
             ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
             : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
-        onclick={() => {
-          voiceInputRecording = true
-          voiceInputShortcutInputEl?.focus()
-        }}
-        onkeydown={(e) => {
-          if (voiceInputRecording) handleVoiceInputShortcutKeydown(e)
-        }}
-        onblur={() => {
-          voiceInputRecording = false
-        }}
-      >
-        {#if voiceInputRecording}
-          <span class="text-[11px]">Press keys…</span>
-        {:else if voiceInputShortcutValue}
-          {displayShortcut(voiceInputShortcutValue)}
-        {:else}
-          <span class="opacity-40">Disabled</span>
-        {/if}
-      </button>
-      {#if voiceInputShortcutValue && !voiceInputRecording}
-        <button
-          class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
-          onclick={async () => {
-            voiceInputShortcutValue = ''
-            await window.electronAPI.setConfig({ voiceInputShortcut: '' })
-            config.set(await window.electronAPI.getConfig())
+          onclick={() => {
+            voiceInputRecording = true
+            voiceInputShortcutInputEl?.focus()
+          }}
+          onkeydown={(e) => {
+            if (voiceInputRecording) handleVoiceInputShortcutKeydown(e)
+          }}
+          onblur={() => {
+            voiceInputRecording = false
           }}
         >
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          {#if voiceInputRecording}
+            <span class="text-[11px]">{$i18n.t('settings.general.pressKeys')}</span>
+          {:else if voiceInputShortcutValue}
+            {displayShortcut(voiceInputShortcutValue)}
+          {:else}
+            <span class="opacity-40">{$i18n.t('common.disabled')}</span>
+          {/if}
         </button>
-      {/if}
+        {#if voiceInputShortcutValue && !voiceInputRecording}
+          <button
+            class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
+            onclick={async () => {
+              voiceInputShortcutValue = ''
+              await window.electronAPI.setConfig({ voiceInputShortcut: '' })
+              config.set(await window.electronAPI.getConfig())
+            }}
+          >
+            <svg
+              class="w-3 h-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        {/if}
+      </div>
     </div>
-  </div>
   {/if}
 
   <div class="py-4 flex items-center justify-between">
     <div>
-      <div class="text-[13px] opacity-70">Call</div>
-      <div class="text-[11px] opacity-25 mt-0.5">Enable global shortcut to start a voice/video call</div>
+      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.call')}</div>
+      <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.callDesc')}</div>
     </div>
     <Switch
       checked={callEnabled}
-      label="Toggle call shortcut"
+      label={$i18n.t('settings.general.toggleCallShortcut')}
       onchange={async (value) => {
         callEnabled = value
         await window.electronAPI.setConfig({ callEnabled: value })
@@ -629,70 +686,83 @@
   </div>
 
   {#if callEnabled}
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px] opacity-70">Call Shortcut</div>
-      <div class="text-[11px] opacity-25 mt-0.5">
-        {#if callRecording}
-          Press a key combination…
-        {:else}
-          Start a call from anywhere
-        {/if}
+    <div class="py-4 flex items-center justify-between">
+      <div>
+        <div class="text-[13px] opacity-70">{$i18n.t('settings.general.callShortcut')}</div>
+        <div class="text-[11px] opacity-25 mt-0.5">
+          {#if callRecording}
+            {$i18n.t('settings.general.pressKeyCombination')}
+          {:else}
+            {$i18n.t('settings.general.callShortcutDesc')}
+          {/if}
+        </div>
       </div>
-    </div>
-    <div class="flex items-center gap-1.5">
-      <button
-        bind:this={callShortcutInputEl}
-        class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
+      <div class="flex items-center gap-1.5">
+        <button
+          bind:this={callShortcutInputEl}
+          class="text-[12px] px-3 py-1.5 border-none outline-none rounded-xl transition min-w-[80px] text-center
           {callRecording
             ? 'bg-black/[0.08] dark:bg-white/[0.10] text-[#1d1d1f] dark:text-[#fafafa] opacity-80 animate-pulse'
             : 'bg-black/[0.04] dark:bg-white/[0.06] text-[#1d1d1f] dark:text-[#fafafa] opacity-60 hover:opacity-80'}"
-        onclick={() => {
-          callRecording = true
-          callShortcutInputEl?.focus()
-        }}
-        onkeydown={(e) => {
-          if (callRecording) handleCallShortcutKeydown(e)
-        }}
-        onblur={() => {
-          callRecording = false
-        }}
-      >
-        {#if callRecording}
-          <span class="text-[11px]">Press keys…</span>
-        {:else if callShortcutValue}
-          {displayShortcut(callShortcutValue)}
-        {:else}
-          <span class="opacity-40">Disabled</span>
-        {/if}
-      </button>
-      {#if callShortcutValue && !callRecording}
-        <button
-          class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
-          onclick={async () => {
-            callShortcutValue = ''
-            await window.electronAPI.setConfig({ callShortcut: '' })
-            config.set(await window.electronAPI.getConfig())
+          onclick={() => {
+            callRecording = true
+            callShortcutInputEl?.focus()
+          }}
+          onkeydown={(e) => {
+            if (callRecording) handleCallShortcutKeydown(e)
+          }}
+          onblur={() => {
+            callRecording = false
           }}
         >
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          {#if callRecording}
+            <span class="text-[11px]">{$i18n.t('settings.general.pressKeys')}</span>
+          {:else if callShortcutValue}
+            {displayShortcut(callShortcutValue)}
+          {:else}
+            <span class="opacity-40">{$i18n.t('common.disabled')}</span>
+          {/if}
         </button>
-      {/if}
+        {#if callShortcutValue && !callRecording}
+          <button
+            class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
+            onclick={async () => {
+              callShortcutValue = ''
+              await window.electronAPI.setConfig({ callShortcut: '' })
+              config.set(await window.electronAPI.getConfig())
+            }}
+          >
+            <svg
+              class="w-3 h-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        {/if}
+      </div>
     </div>
-  </div>
   {/if}
 
   <!-- Advanced (collapsed by default) -->
   <div class="py-4">
     <button
       class="flex items-center gap-1.5 bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0 cursor-pointer"
-      onclick={() => { advancedOpen = !advancedOpen }}
+      onclick={() => {
+        advancedOpen = !advancedOpen
+      }}
     >
       <svg
-        class="w-3 h-3 opacity-30 transition-transform duration-200 {advancedOpen ? 'rotate-90' : ''}"
-        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+        class="w-3 h-3 opacity-30 transition-transform duration-200 {advancedOpen
+          ? 'rotate-90'
+          : ''}"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="2"
       >
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
       </svg>
@@ -700,13 +770,17 @@
     </button>
 
     {#if advancedOpen}
-        <div class="flex flex-col divide-y divide-white/[0.04] mt-1">
+      <div class="flex flex-col divide-y divide-white/[0.04] mt-1">
         <!-- Install location -->
         <div class="py-4 flex items-center justify-between gap-4">
           <div class="shrink-0">
             <div class="text-[13px] opacity-70">{$i18n.t('settings.general.installLocation')}</div>
-            <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.installLocationDesc')}</div>
-            <div class="text-[10px] opacity-15 mt-0.5">{$i18n.t('settings.general.installLocationNote')}</div>
+            <div class="text-[11px] opacity-25 mt-0.5">
+              {$i18n.t('settings.general.installLocationDesc')}
+            </div>
+            <div class="text-[10px] opacity-15 mt-0.5">
+              {$i18n.t('settings.general.installLocationNote')}
+            </div>
           </div>
           <div class="flex items-center gap-1.5 min-w-0 flex-1 max-w-[280px] justify-end">
             <input
@@ -741,8 +815,12 @@
         <div class="py-4">
           <div class="flex items-center justify-between mb-3">
             <div>
-              <div class="text-[13px] opacity-70">{$i18n.t('settings.general.environmentVariables')}</div>
-              <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.general.environmentVariablesDesc')}</div>
+              <div class="text-[13px] opacity-70">
+                {$i18n.t('settings.general.environmentVariables')}
+              </div>
+              <div class="text-[11px] opacity-25 mt-0.5">
+                {$i18n.t('settings.general.environmentVariablesDesc')}
+              </div>
             </div>
             <button
               class="text-[11px] opacity-30 hover:opacity-60 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
@@ -761,7 +839,9 @@
                     placeholder={$i18n.t('settings.general.keyPlaceholder')}
                     class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-2.5 py-1.5 border-none outline-none rounded-lg opacity-60 flex-1 min-w-0 font-mono"
                     value={entry.key}
-                    oninput={(e) => { envEntries[i].key = (e.target as HTMLInputElement).value }}
+                    oninput={(e) => {
+                      envEntries[i].key = (e.target as HTMLInputElement).value
+                    }}
                     onblur={saveEnvVars}
                   />
                   <span class="text-[11px] opacity-20">=</span>
@@ -770,15 +850,27 @@
                     placeholder="value"
                     class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-2.5 py-1.5 border-none outline-none rounded-lg opacity-60 flex-[2] min-w-0 font-mono"
                     value={entry.value}
-                    oninput={(e) => { envEntries[i].value = (e.target as HTMLInputElement).value }}
+                    oninput={(e) => {
+                      envEntries[i].value = (e.target as HTMLInputElement).value
+                    }}
                     onblur={saveEnvVars}
                   />
                   <button
                     class="opacity-20 hover:opacity-50 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0.5 shrink-0"
                     onclick={() => removeEnvVar(i)}
                   >
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      class="w-3 h-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -797,14 +889,12 @@
             </div>
           </div>
           <button
-            class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {resetting ? 'pointer-events-none opacity-30' : ''}"
+            class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {resetting
+              ? 'pointer-events-none opacity-30'
+              : ''}"
             disabled={resetting}
             onclick={async () => {
-              if (
-                confirm(
-                  $i18n.t('settings.general.factoryResetConfirm')
-                )
-              ) {
+              if (confirm($i18n.t('settings.general.factoryResetConfirm'))) {
                 resetting = true
                 await window.electronAPI.resetApp()
                 window.location.reload()
@@ -813,7 +903,15 @@
           >
             {#if resetting}
               <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round" />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-dasharray="31.4 31.4"
+                  stroke-linecap="round"
+                />
               </svg>
               {$i18n.t('common.resetting')}
             {:else}

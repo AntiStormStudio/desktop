@@ -3,6 +3,7 @@
   import { onMount } from 'svelte'
   import { connections, config, serverInfo } from '../../stores'
   import i18n from '../../i18n'
+  import { APP_PROFILE } from '../../profile'
 
   import logoImage from '../../assets/images/splash.png'
 
@@ -20,6 +21,11 @@
   })
 
   const install = async () => {
+    if (!APP_PROFILE.features.allowLocalOpenWebUIInstall) {
+      phase = 'error'
+      errorMsg = $i18n.t('setup.install.localInstallDisabled')
+      return
+    }
     phase = 'working'
     try {
       // Save custom install directory before installing
@@ -28,7 +34,11 @@
       }
 
       const ok = await window.electronAPI.installPackage()
-      if (!ok) { phase = 'error'; errorMsg = $i18n.t('setup.install.failed'); return }
+      if (!ok) {
+        phase = 'error'
+        errorMsg = $i18n.t('setup.install.failed')
+        return
+      }
 
       await window.electronAPI.startServer()
       const info = await window.electronAPI.getServerInfo()
@@ -103,18 +113,26 @@
       onclick={install}
     >
       {$i18n.t('setup.install.continue')}
-      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <svg
+        class="h-3.5 w-3.5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="1.5"
+      >
         <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
       </svg>
     </button>
-
   {:else if phase === 'working'}
     <div class="flex flex-col items-center gap-5 py-10" in:fade={{ duration: 250 }}>
       <img src={logoImage} class="size-12 rounded-full dark:invert" alt="logo" />
       <div class="flex flex-col items-center gap-2 text-center">
         <div class="text-sm opacity-60">{$i18n.t('setup.install.installing')}</div>
         {#if $serverInfo?.status}
-          <div class="text-[11px] opacity-30 max-w-[220px] leading-relaxed" in:fade={{ duration: 200 }}>
+          <div
+            class="text-[11px] opacity-30 max-w-[220px] leading-relaxed"
+            in:fade={{ duration: 200 }}
+          >
             {$serverInfo.status}
           </div>
         {:else}
@@ -124,13 +142,11 @@
         {/if}
       </div>
     </div>
-
   {:else if phase === 'done'}
     <div class="flex flex-col items-center gap-4 py-10" in:fade={{ duration: 250 }}>
       <img src={logoImage} class="size-12 rounded-full dark:invert" alt="logo" />
       <div class="text-sm text-green-400 opacity-70">{$i18n.t('common.ready')}</div>
     </div>
-
   {:else if phase === 'error'}
     <div class="flex flex-col items-center gap-4 py-10" in:fade={{ duration: 250 }}>
       <div class="text-[12px] text-red-400 opacity-80">{errorMsg}</div>

@@ -1,11 +1,17 @@
-appId: com.sparkatlas.desktop
-productName: Spark Atlas Desktop
+appId: "com.sparkatlas.desktop"
+productName: "Spark Atlas Desktop"
 protocols:
-  - name: Spark Atlas Desktop
+  - name: "Spark Atlas Desktop"
     schemes:
       - spal
 directories:
   buildResources: build
+extraMetadata:
+  name: "spark-atlas-desktop"
+  productName: "Spark Atlas Desktop"
+  description: "Spark Atlas Desktop"
+  author: "Spark Atlas"
+  homepage: "https://openwebui.com"
 files:
   - '!**/.vscode/*'
   - '!src/*'
@@ -21,9 +27,9 @@ asarUnpack:
   - resources/**
   - node_modules/node-pty/**
 win:
-  executableName: spark-atlas
+  executableName: "spark-atlas"
 nsis:
-  artifactName: ${name}-${arch}-setup.${ext}
+  artifactName: "spark-atlas-desktop-${arch}-setup.${ext}"
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
@@ -34,7 +40,7 @@ mac:
       arch:
         - x64
         - arm64
-  artifactName: ${name}-${arch}-mac.${ext}
+  artifactName: "spark-atlas-desktop-${arch}-mac.${ext}"
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
@@ -44,7 +50,7 @@ mac:
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
 dmg:
   background: build/dmg-background.png
-  artifactName: ${name}-${arch}.${ext}
+  artifactName: "spark-atlas-desktop-${arch}.${ext}"
   title: ${productName}
   contents:
     - x: 225
@@ -60,21 +66,21 @@ linux:
     - snap
     - deb
     - flatpak
-  maintainer: openwebui.com
+  maintainer: "openwebui.com"
   category: Utility
 deb:
-  artifactName: ${name}_${arch}.${ext}
+  artifactName: "spark-atlas-desktop_${arch}.${ext}"
 snap:
-  artifactName: ${name}_${arch}.${ext}
+  artifactName: "spark-atlas-desktop_${arch}.${ext}"
 appImage:
-  artifactName: ${name}_${arch}.${ext}
+  artifactName: "spark-atlas-desktop_${arch}.${ext}"
 flatpak:
   base: org.electronjs.Electron2.BaseApp
   baseVersion: '23.08'
   runtime: org.freedesktop.Platform
   runtimeVersion: '23.08'
   sdk: org.freedesktop.Sdk
-  artifactName: ${name}.flatpak
+  artifactName: "spark-atlas-desktop.flatpak"
   finishArgs:
     - --share=ipc
     - --socket=x11
@@ -88,4 +94,4 @@ flatpak:
 npmRebuild: true
 publish:
   provider: generic
-  url: https://chat.spark-ai.top/api/v1/configs/apps/updates/desktop/
+  url: "https://chat.spark-ai.top/api/v1/configs/apps/updates/desktop/"

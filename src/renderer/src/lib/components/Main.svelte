@@ -47,7 +47,9 @@
         <button
           class="opacity-70 hover:opacity-100 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] no-drag"
           onclick={toggleSidebar}
-          use:tooltip={sidebarOpen ? $i18n.t('sidebar.tooltip.closeSidebar') : $i18n.t('sidebar.tooltip.openSidebar')}
+          use:tooltip={sidebarOpen
+            ? $i18n.t('sidebar.tooltip.closeSidebar')
+            : $i18n.t('sidebar.tooltip.openSidebar')}
         >
           <svg
             class="w-[15px] h-[15px]"
@@ -72,8 +74,18 @@
               if (wv?.goBack) wv.goBack()
             }}
           >
-            <svg class="w-[13px] h-[13px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            <svg
+              class="w-[13px] h-[13px]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M15.75 19.5L8.25 12l7.5-7.5"
+              />
             </svg>
           </button>
           <button
@@ -83,7 +95,13 @@
               if (wv?.goForward) wv.goForward()
             }}
           >
-            <svg class="w-[13px] h-[13px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg
+              class="w-[13px] h-[13px]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
               <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
             </svg>
           </button>
@@ -102,8 +120,18 @@
             }}
             use:tooltip={$i18n.t('common.refresh')}
           >
-            <svg class="w-[13px] h-[13px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7" />
+            <svg
+              class="w-[13px] h-[13px]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7"
+              />
             </svg>
           </button>
         {/if}

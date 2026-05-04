@@ -83,6 +83,7 @@ import {
 } from './utils/huggingface'
 
 import { initUpdater, checkForUpdates, downloadUpdate, installUpdate } from './updater'
+import { APP_PROFILE } from '../shared/profile'
 
 import log from 'electron-log'
 log.transports.file.resolvePathFn = () => getLogFilePath('main')
@@ -126,6 +127,34 @@ if (process.platform === 'linux') {
 const gpuCrashMarkerPath = join(app.getPath('userData'), '.gpu-sandbox-disabled')
 const gpuSandboxDisabled = existsSync(gpuCrashMarkerPath)
 
+const BRAND = APP_PROFILE.brand
+const FEATURES = APP_PROFILE.features
+const DESKTOP_PROTOCOL = 'spal'
+const DESKTOP_MAGIC_AUTH_HOST = 'auth'
+const REMOTE_PERMISSION_ALLOWLIST = new Set<string>([
+  ...APP_PROFILE.remotePermissions.allowed,
+  ...(FEATURES.allowRemotePasskeys
+    ? ['publickey-credentials-create', 'publickey-credentials-get']
+    : [])
+])
+
+const isRemotePermissionAllowed = (permission: string): boolean => {
+  return REMOTE_PERMISSION_ALLOWLIST.has(permission)
+}
+
+const isOriginAllowedInWebview = (targetUrl: string, currentUrl?: string): boolean => {
+  try {
+    const target = new URL(targetUrl)
+    if (!currentUrl) return true
+    const current = new URL(currentUrl)
+    if (target.origin === current.origin) return true
+    if (!APP_PROFILE.auth.allowExternalAuthOriginsInWebview) return false
+    return APP_PROFILE.auth.allowedAuthOrigins.some((origin) => origin === target.origin)
+  } catch {
+    return false
+  }
+}
+
 if (gpuSandboxDisabled) {
   log.info('GPU sandbox disabled due to previous GPU process crash')
   app.commandLine.appendSwitch('disable-gpu-sandbox')
@@ -151,6 +180,7 @@ let SERVER_REACHABLE = false
 let SERVER_PID: number | null = null
 let AUTH_TOKEN: string | null = null
 let voiceInputRecording = false
+let pendingProtocolUrl: string | null = null
 
 // ─── Global Shortcuts ───────────────────────────────────
 
@@ -212,22 +242,27 @@ function tryRegisterShortcut(
   }
 }
 
-const registerShortcuts = (globalAccel?: string, spotlightAccel?: string, voiceInputAccel?: string, callAccel?: string): void => {
+const registerShortcuts = (
+  globalAccel?: string,
+  spotlightAccel?: string,
+  voiceInputAccel?: string,
+  callAccel?: string
+): void => {
   globalShortcut.unregisterAll()
 
   // On Wayland / Flatpak global shortcuts are unsupported — skip silently.
   if (!isGlobalShortcutSupported()) {
     log.info(
       'Global shortcut registration skipped — unsupported environment ' +
-      `(XDG_SESSION_TYPE=${process.env['XDG_SESSION_TYPE'] ?? '(unset)'}, ` +
-      `FLATPAK_ID=${process.env['FLATPAK_ID'] ?? '(unset)'})`
+        `(XDG_SESSION_TYPE=${process.env['XDG_SESSION_TYPE'] ?? '(unset)'}, ` +
+        `FLATPAK_ID=${process.env['FLATPAK_ID'] ?? '(unset)'})`
     )
     return
   }
 
   // Global shortcut – bring main window to foreground
   if (globalAccel) {
-    tryRegisterShortcut(globalAccel, 'Open WebUI', () => {
+    tryRegisterShortcut(globalAccel, BRAND.name, () => {
       if (mainWindow) {
         mainWindow.show()
         mainWindow.focus()
@@ -240,9 +275,8 @@ const registerShortcuts = (globalAccel?: string, spotlightAccel?: string, voiceI
   // Spotlight shortcut – toggle the spotlight input bar
   if (spotlightAccel) {
     tryRegisterShortcut(spotlightAccel, 'Spotlight', () => {
-      const text = CONFIG?.spotlightClipboardPaste !== false
-        ? (clipboard.readText()?.trim() || '')
-        : ''
+      const text =
+        CONFIG?.spotlightClipboardPaste !== false ? clipboard.readText()?.trim() || '' : ''
       toggleSpotlight(text)
     })
   }
@@ -253,7 +287,9 @@ const registerShortcuts = (globalAccel?: string, spotlightAccel?: string, voiceI
       toggleVoiceInput()
     })
   } else {
-    log.info(`Voice input shortcut skipped — accel="${voiceInputAccel}", enabled=${CONFIG?.voiceInputEnabled}`)
+    log.info(
+      `Voice input shortcut skipped — accel="${voiceInputAccel}", enabled=${CONFIG?.voiceInputEnabled}`
+    )
   }
 
   // Call shortcut – open the voice/video call overlay
@@ -440,7 +476,10 @@ function playChime(ascending: boolean): Promise<void> {
     const exists = fs.existsSync(soundPath)
     log.info(`playChime: ${ascending ? 'start' : 'stop'}, path=${soundPath}, exists=${exists}`)
 
-    if (!exists) { resolve(); return }
+    if (!exists) {
+      resolve()
+      return
+    }
 
     if (process.platform === 'darwin') {
       execFile('afplay', [soundPath], (err, stdout, stderr) => {
@@ -448,9 +487,11 @@ function playChime(ascending: boolean): Promise<void> {
         resolve()
       })
     } else if (process.platform === 'win32') {
-      execFile('powershell', ['-NoProfile', '-Command',
-        `(New-Object Media.SoundPlayer '${soundPath}').PlaySync()`
-      ], () => resolve())
+      execFile(
+        'powershell',
+        ['-NoProfile', '-Command', `(New-Object Media.SoundPlayer '${soundPath}').PlaySync()`],
+        () => resolve()
+      )
     } else {
       execFile('paplay', [soundPath], (err) => {
         if (err) execFile('aplay', [soundPath], () => resolve())
@@ -606,7 +647,10 @@ function debounceSaveWindowBounds(win: BrowserWindow): void {
  */
 function isBoundsOnVisibleDisplay(bounds: { x: number; y: number }): boolean {
   const { screen } = require('electron')
-  const targetPoint = { x: bounds.x + MIN_VISIBLE_OVERLAP_PX / 2, y: bounds.y + MIN_VISIBLE_OVERLAP_PX / 2 }
+  const targetPoint = {
+    x: bounds.x + MIN_VISIBLE_OVERLAP_PX / 2,
+    y: bounds.y + MIN_VISIBLE_OVERLAP_PX / 2
+  }
   const display = screen.getDisplayNearestPoint(targetPoint)
   const { x, y, width, height } = display.workArea
   return (
@@ -738,8 +782,13 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
   session
     .fromPartition(`persist:connection-${connectionId}`)
     .setPermissionRequestHandler((_webContents, permission, callback) => {
-      const allowedPermissions = ['media', 'mediaKeySystem', 'notifications', 'clipboard-sanitized-write']
+      const allowedPermissions = Array.from(REMOTE_PERMISSION_ALLOWLIST)
       callback(allowedPermissions.includes(permission))
+    })
+  session
+    .fromPartition(`persist:connection-${connectionId}`)
+    .setPermissionCheckHandler((_webContents, permission) => {
+      return isRemotePermissionAllowed(permission)
     })
 
   contentWindow.on('ready-to-show', () => {
@@ -747,6 +796,9 @@ function createContentWindow(url: string, connectionId: string): BrowserWindow {
   })
 
   contentWindow.webContents.setWindowOpenHandler((details) => {
+    if (isOriginAllowedInWebview(details.url, contentWindow?.webContents.getURL())) {
+      return { action: 'allow' }
+    }
     openUrl(details.url)
     return { action: 'deny' }
   })
@@ -788,7 +840,7 @@ const updateTray = () => {
 
   const trayMenuTemplate = [
     {
-      label: 'Show Open WebUI',
+      label: `Show ${BRAND.name}`,
       click: () => {
         mainWindow?.show()
         mainWindow?.focus()
@@ -796,11 +848,7 @@ const updateTray = () => {
     },
     { type: 'separator' },
     ...(connectionItems.length > 0
-      ? [
-          { label: 'Connections', enabled: false },
-          ...connectionItems,
-          { type: 'separator' }
-        ]
+      ? [{ label: 'Connections', enabled: false }, ...connectionItems, { type: 'separator' }]
       : []),
     ...(SERVER_STATUS === 'started' && SERVER_URL
       ? [
@@ -814,7 +862,7 @@ const updateTray = () => {
         ]
       : []),
     {
-      label: 'Quit Open WebUI',
+      label: `Quit ${BRAND.name}`,
       accelerator: 'CommandOrControl+Q',
       click: async () => {
         await stopServerHandler()
@@ -834,6 +882,10 @@ const connectTo = async (connection: Connection) => {
   let url = connection.url
 
   if (connection.type === 'local') {
+    if (!FEATURES.allowLocalOpenWebUIInstall) {
+      log.warn('connectTo: local connection blocked by build profile')
+      return null
+    }
     // Start local server if needed
     if (SERVER_STATUS !== 'started') {
       const started = await startServerHandler()
@@ -873,6 +925,11 @@ const connectTo = async (connection: Connection) => {
 let activePtyDataDisposable: { dispose: () => void } | null = null
 
 const startServerHandler = async (): Promise<boolean> => {
+  if (!FEATURES.allowLocalOpenWebUIInstall) {
+    log.warn('[server] Local server start blocked by build profile')
+    sendToRenderer('error', { message: localInstallDisabledError().message })
+    return false
+  }
   if (SERVER_STATUS === 'starting' || SERVER_STATUS === 'started') {
     log.info('[server] Already running or starting, skipping duplicate start')
     return true
@@ -1099,17 +1156,203 @@ const resetAppHandler = async () => {
     await new Promise((resolve) => setTimeout(resolve, 1000))
     await resetApp()
     CONFIG = await getConfig() // reload from defaults since config.json was deleted
-    new Notification({ title: 'Open WebUI', body: 'Application has been reset.' }).show()
+    new Notification({ title: BRAND.name, body: 'Application has been reset.' }).show()
   } catch (error) {
     log.error('Failed to reset:', error)
-    new Notification({ title: 'Open WebUI', body: `Reset failed: ${error.message}` }).show()
+    new Notification({ title: BRAND.name, body: `Reset failed: ${error.message}` }).show()
   }
 }
 
 // ─── Helpers ────────────────────────────────────────────
 
 const sendToRenderer = (type: string, data?: any) => {
-  mainWindow?.webContents.send('main:data', { type, data })
+  if (!mainWindow || mainWindow.isDestroyed()) return
+
+  const send = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    mainWindow.webContents.send('main:data', { type, data })
+  }
+
+  if (mainWindow.webContents.isLoading()) {
+    mainWindow.webContents.once('did-finish-load', send)
+  } else {
+    send()
+  }
+}
+
+const localInstallDisabledError = () =>
+  new Error(`${APP_PROFILE.brand.serviceName} local installation is disabled in this build.`)
+
+const remoteAddDisabledError = () =>
+  new Error('Adding remote Open WebUI instances is disabled in this build.')
+
+type DesktopBridgeRequest = {
+  connectionId: string
+  origin: string
+  capability: string
+  action: string
+  payload?: any
+}
+
+const isBridgeOriginTrusted = (connection: Connection | undefined, origin: string): boolean => {
+  if (!connection) return false
+  try {
+    return new URL(connection.url).origin === new URL(origin).origin
+  } catch {
+    return false
+  }
+}
+
+const findProtocolUrl = (argv: string[]): string | null => {
+  return (
+    argv.find((arg) => typeof arg === 'string' && arg.startsWith(`${DESKTOP_PROTOCOL}://`)) ?? null
+  )
+}
+
+const getOrigin = (url: string): string | null => {
+  try {
+    return new URL(url).origin
+  } catch {
+    return null
+  }
+}
+
+const normalizeAppRedirectPath = (redirect?: string | null): string => {
+  const value = String(redirect || '/').trim()
+  if (!value.startsWith('/') || value.startsWith('//')) return '/'
+  return value
+}
+
+const ensureMainWindow = (): void => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createMainWindow()
+  }
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  }
+}
+
+const registerProtocolClient = (): void => {
+  try {
+    if (process.defaultApp && process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient(DESKTOP_PROTOCOL, process.execPath, [
+        path.resolve(process.argv[1])
+      ])
+    } else {
+      app.setAsDefaultProtocolClient(DESKTOP_PROTOCOL)
+    }
+  } catch (error) {
+    log.warn(`Failed to register ${DESKTOP_PROTOCOL} protocol:`, error)
+  }
+}
+
+const getWebviewTokenForConnection = async (connectionId: string): Promise<string> => {
+  try {
+    const { webContents: wc } = require('electron')
+    const allContents = wc.getAllWebContents()
+    for (const contents of allContents) {
+      try {
+        if (contents.getType() !== 'webview' || contents.isDestroyed()) continue
+        const partition = contents.session?.partition ?? ''
+        if (partition && partition !== `persist:connection-${connectionId}`) continue
+
+        const token = await contents.executeJavaScript(`localStorage.getItem('token') || ''`)
+        if (token) return token
+      } catch {
+        // Skip inaccessible or not-yet-ready webviews.
+      }
+    }
+  } catch {
+    log.warn('Could not inspect webview token state')
+  }
+
+  return ''
+}
+
+const isConnectionLoggedIn = async (connectionId: string): Promise<boolean> => {
+  if (AUTH_TOKEN) return true
+  return Boolean(await getWebviewTokenForConnection(connectionId))
+}
+
+const findConnectionForMagicServer = (
+  config: AppConfig,
+  serverUrl: string
+): Connection | undefined => {
+  const targetOrigin = getOrigin(serverUrl)
+  if (!targetOrigin) return undefined
+
+  return config.connections.find((connection) => getOrigin(connection.url) === targetOrigin)
+}
+
+const handleProtocolUrl = async (rawUrl: string): Promise<void> => {
+  if (!rawUrl) return
+  if (!app.isReady() || !CONFIG) {
+    pendingProtocolUrl = rawUrl
+    return
+  }
+
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl)
+  } catch {
+    log.warn('Ignoring invalid protocol URL:', rawUrl)
+    return
+  }
+
+  if (parsed.protocol !== `${DESKTOP_PROTOCOL}:`) return
+
+  const action = parsed.hostname || parsed.pathname.replace(/^\/+/, '')
+  if (action !== DESKTOP_MAGIC_AUTH_HOST) {
+    ensureMainWindow()
+    return
+  }
+
+  const serverUrl = parsed.searchParams.get('server') || ''
+  const ticket = parsed.searchParams.get('ticket') || ''
+  const redirect = normalizeAppRedirectPath(parsed.searchParams.get('redirect'))
+
+  if (!serverUrl || !ticket) {
+    log.warn('Desktop magic link is missing server or ticket')
+    ensureMainWindow()
+    return
+  }
+
+  const config = await getConfig()
+  const connection = findConnectionForMagicServer(config, serverUrl)
+  if (!connection) {
+    log.warn('Desktop magic link server is not configured:', serverUrl)
+    new Notification({
+      title: BRAND.name,
+      body: 'This desktop sign-in link does not match a configured Spark Atlas connection.'
+    }).show()
+    ensureMainWindow()
+    return
+  }
+
+  ensureMainWindow()
+
+  if (await isConnectionLoggedIn(connection.id)) {
+    const result = await connectTo(connection)
+    if (result) sendToRenderer('connection:open', result)
+    return
+  }
+
+  const serverOrigin = getOrigin(connection.url) || getOrigin(serverUrl)
+  if (!serverOrigin) {
+    log.warn('Desktop magic link server origin is invalid:', serverUrl)
+    return
+  }
+
+  const authUrl = new URL('/auth', serverOrigin)
+  authUrl.searchParams.set('desktop_magic_ticket', ticket)
+  authUrl.searchParams.set('desktop_magic_redirect', redirect)
+
+  sendToRenderer('connection:open', {
+    connectionId: connection.id,
+    url: authUrl.toString()
+  })
 }
 
 // ─── App Lifecycle ──────────────────────────────────────
@@ -1118,7 +1361,13 @@ const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
+    const protocolUrl = findProtocolUrl(argv)
+    if (protocolUrl) {
+      void handleProtocolUrl(protocolUrl)
+      return
+    }
+
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.show()
@@ -1126,25 +1375,32 @@ if (!gotTheLock) {
     }
   })
 
+  app.on('open-url', (event, url) => {
+    event.preventDefault()
+    void handleProtocolUrl(url)
+  })
+
   app.setAboutPanelOptions({
-    applicationName: 'Open WebUI',
+    applicationName: BRAND.desktopName,
     iconPath: icon,
     applicationVersion: app.getVersion(),
     version: app.getVersion(),
-    website: 'https://openwebui.com',
-    copyright: `© ${new Date().getFullYear()} Open WebUI`
+    website: BRAND.homepage,
+    copyright: `© ${new Date().getFullYear()} ${BRAND.name}`
   })
 
   app.whenReady().then(async () => {
+    registerProtocolClient()
+
     CONFIG = await getConfig()
     loadSpotlightPosition()
     log.info('Config:', CONFIG)
 
-    app.name = 'Open WebUI'
+    app.name = BRAND.desktopName
     if (process.platform === 'darwin' && app.dock) {
       app.dock.setIcon(icon)
     }
-    electronApp.setAppUserModelId('com.openwebui.desktop')
+    electronApp.setAppUserModelId(BRAND.appId)
 
     // ─── GPU Process Crash Recovery ──────────────────
     // If the GPU process exits fatally (e.g. sandbox init failure on
@@ -1153,9 +1409,7 @@ if (!gotTheLock) {
     // shortcut targets (see issue #110).
     app.on('child-process-gone', (_event, details) => {
       if (details.type === 'GPU') {
-        log.error(
-          `GPU process gone: reason=${details.reason}, exitCode=${details.exitCode}`
-        )
+        log.error(`GPU process gone: reason=${details.reason}, exitCode=${details.exitCode}`)
 
         // Only auto-recover from fatal crashes, not normal/clean exits
         if (
@@ -1192,7 +1446,7 @@ if (!gotTheLock) {
     app.on('certificate-error', (event, _webContents, url, error, certificate, callback) => {
       log.warn(
         `Certificate error: ${error} for ${url} ` +
-        `(subject: ${certificate.subjectName}, issuer: ${certificate.issuerName})`
+          `(subject: ${certificate.subjectName}, issuer: ${certificate.issuerName})`
       )
       event.preventDefault()
       callback(true)
@@ -1202,6 +1456,12 @@ if (!gotTheLock) {
     // validateRemoteUrl / checkUrlAndOpen).
     session.defaultSession.setCertificateVerifyProc((_request, callback) => {
       callback(0) // 0 = verified/trusted
+    })
+    session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+      callback(isRemotePermissionAllowed(permission))
+    })
+    session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+      return isRemotePermissionAllowed(permission)
     })
 
     // Webviews use partitioned sessions (persist:connection-*). Each
@@ -1214,8 +1474,10 @@ if (!gotTheLock) {
       // Grant media / notification permissions for webview partition sessions
       // so that auth flows, media capture, and notifications work correctly.
       newSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-        const allowed = ['media', 'mediaKeySystem', 'notifications', 'clipboard-read', 'clipboard-sanitized-write']
-        callback(allowed.includes(permission))
+        callback(isRemotePermissionAllowed(permission))
+      })
+      newSession.setPermissionCheckHandler((_webContents, permission) => {
+        return isRemotePermissionAllowed(permission)
       })
     })
 
@@ -1225,9 +1487,7 @@ if (!gotTheLock) {
       // Auto-reload when the renderer process dies so the user doesn't
       // see a permanent blank/grey screen.
       window.webContents.on('render-process-gone', (_event, details) => {
-        log.error(
-          `Renderer process gone: reason=${details.reason}, exitCode=${details.exitCode}`
-        )
+        log.error(`Renderer process gone: reason=${details.reason}, exitCode=${details.exitCode}`)
         if (details.reason !== 'clean-exit') {
           window.webContents.reload()
         }
@@ -1245,7 +1505,7 @@ if (!gotTheLock) {
         if (details.reason !== 'clean-exit') {
           log.error(
             `WebContents render-process-gone: type=${contents.getType()}, ` +
-            `reason=${details.reason}, exitCode=${details.exitCode}`
+              `reason=${details.reason}, exitCode=${details.exitCode}`
           )
         }
       })
@@ -1253,6 +1513,9 @@ if (!gotTheLock) {
       if (contents.getType() === 'webview') {
         // ── Popups (target="_blank" links) → open in default browser ──
         contents.setWindowOpenHandler(({ url }) => {
+          if (isOriginAllowedInWebview(url, contents.getURL())) {
+            return { action: 'allow' }
+          }
           openUrl(url)
           return { action: 'deny' }
         })
@@ -1264,7 +1527,10 @@ if (!gotTheLock) {
           try {
             const currentOrigin = new URL(contents.getURL()).origin
             const targetOrigin = new URL(url).origin
-            if (targetOrigin !== currentOrigin) {
+            if (
+              targetOrigin !== currentOrigin &&
+              !isOriginAllowedInWebview(url, contents.getURL())
+            ) {
               event.preventDefault()
               openUrl(url)
             }
@@ -1318,9 +1584,7 @@ if (!gotTheLock) {
             )
           } else if (params.selectionText) {
             // Non-editable text selection
-            menuItems.push(
-              { label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy }
-            )
+            menuItems.push({ label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy })
           }
 
           if (menuItems.length > 0) {
@@ -1339,7 +1603,10 @@ if (!gotTheLock) {
       platform: process.platform,
       arch: process.arch,
       username: require('os').userInfo().username,
-      gpuSandboxDisabled
+      gpuSandboxDisabled,
+      brand: BRAND,
+      features: FEATURES,
+      updates: APP_PROFILE.updates
     }))
 
     ipcMain.handle('app:contentPreloadPath', () => {
@@ -1352,6 +1619,66 @@ if (!gotTheLock) {
 
     ipcMain.handle('app:installDir', () => {
       return getInstallDir()
+    })
+
+    ipcMain.handle('desktop:bridge:invoke', async (_event, request: DesktopBridgeRequest) => {
+      if (!FEATURES.allowRemoteDesktopBridge) {
+        throw new Error('Desktop bridge is disabled in this build.')
+      }
+
+      const config = await getConfig()
+      const connection = config.connections.find((conn) => conn.id === request.connectionId)
+      if (!isBridgeOriginTrusted(connection, request.origin)) {
+        throw new Error('Desktop bridge origin is not trusted for this connection.')
+      }
+
+      if (!APP_PROFILE.desktopBridge.allowedCapabilities.includes(request.capability as any)) {
+        throw new Error(`Desktop bridge capability is not allowed: ${request.capability}`)
+      }
+
+      switch (request.capability) {
+        case 'app.info':
+          return {
+            version: app.getVersion(),
+            platform: process.platform,
+            arch: process.arch,
+            brand: BRAND,
+            features: FEATURES
+          }
+        case 'app.openExternal': {
+          const url = String(request.payload?.url ?? '')
+          if (!url) throw new Error('No URL provided.')
+          openUrl(url)
+          return true
+        }
+        case 'system.platform':
+          return { platform: process.platform, arch: process.arch }
+        case 'system.selectFolder': {
+          const result = await dialog.showOpenDialog({
+            properties: ['openDirectory', 'createDirectory']
+          })
+          return result.canceled ? null : result.filePaths[0]
+        }
+        case 'resources.selectFile': {
+          if (!FEATURES.allowRemoteLocalResources) {
+            throw new Error('Local resource access is disabled in this build.')
+          }
+          const result = await dialog.showOpenDialog({
+            properties: ['openFile', 'multiSelections']
+          })
+          return result.canceled ? [] : result.filePaths
+        }
+        case 'resources.openPath': {
+          if (!FEATURES.allowRemoteLocalResources) {
+            throw new Error('Local resource access is disabled in this build.')
+          }
+          const targetPath = String(request.payload?.path ?? '')
+          if (!targetPath) throw new Error('No path provided.')
+          return shell.openPath(targetPath)
+        }
+        default:
+          throw new Error(`Unhandled desktop bridge capability: ${request.capability}`)
+      }
     })
 
     ipcMain.handle('system:diskSpace', async () => {
@@ -1370,11 +1697,20 @@ if (!gotTheLock) {
       CONFIG = await getConfig()
       updateTray()
       voiceInputRecording = false
-      registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut, CONFIG.voiceInputShortcut, CONFIG.callShortcut)
+      registerShortcuts(
+        CONFIG.globalShortcut,
+        CONFIG.spotlightShortcut,
+        CONFIG.voiceInputShortcut,
+        CONFIG.callShortcut
+      )
     })
 
     // Python/uv
     ipcMain.handle('install:python', async () => {
+      if (!FEATURES.allowLocalOpenWebUIInstall) {
+        sendToRenderer('error', { message: localInstallDisabledError().message })
+        return false
+      }
       try {
         sendToRenderer('status:install', 'Downloading Python…')
         const res = await installPython(undefined, (status: string) => {
@@ -1384,7 +1720,11 @@ if (!gotTheLock) {
         return res
       } catch (error) {
         sendToRenderer('status:python', false)
-        sendToRenderer('error', { message: error?.message ?? 'Python installation failed. Please check your internet connection and try again.' })
+        sendToRenderer('error', {
+          message:
+            error?.message ??
+            'Python installation failed. Please check your internet connection and try again.'
+        })
         return false
       }
     })
@@ -1395,6 +1735,10 @@ if (!gotTheLock) {
 
     // Package
     ipcMain.handle('install:package', async () => {
+      if (!FEATURES.allowLocalOpenWebUIInstall) {
+        sendToRenderer('error', { message: localInstallDisabledError().message })
+        return false
+      }
       try {
         CONFIG = await getConfig()
         const owuiVersion = CONFIG?.localServer?.version || undefined
@@ -1407,14 +1751,16 @@ if (!gotTheLock) {
         sendToRenderer('status:install', 'Installing Open Terminal…')
         await installPackage('open-terminal', otVersion, (status: string) => {
           sendToRenderer('status:install', status)
-        }).catch((e) =>
-          log.warn('open-terminal install failed (non-fatal):', e)
-        )
+        }).catch((e) => log.warn('open-terminal install failed (non-fatal):', e))
         sendToRenderer('status:package', true)
         return true
       } catch (error) {
         sendToRenderer('status:package', false)
-        sendToRenderer('error', { message: error?.message ?? 'Package installation failed. Please check your internet connection and try again.' })
+        sendToRenderer('error', {
+          message:
+            error?.message ??
+            'Package installation failed. Please check your internet connection and try again.'
+        })
         return false
       }
     })
@@ -1448,6 +1794,12 @@ if (!gotTheLock) {
     })
 
     ipcMain.handle('connections:add', async (_event, connection: Connection) => {
+      if (connection.type === 'local' && !FEATURES.allowLocalOpenWebUIInstall) {
+        throw localInstallDisabledError()
+      }
+      if (connection.type === 'remote' && !FEATURES.allowUserRemoteOpenWebUI) {
+        throw remoteAddDisabledError()
+      }
       const config = await getConfig()
       config.connections.push(connection)
       if (!config.defaultConnectionId) {
@@ -1471,17 +1823,20 @@ if (!gotTheLock) {
       return config.connections
     })
 
-    ipcMain.handle('connections:update', async (_event, id: string, updates: Partial<Connection>) => {
-      const config = await getConfig()
-      const idx = config.connections.findIndex((c) => c.id === id)
-      if (idx !== -1) {
-        config.connections[idx] = { ...config.connections[idx], ...updates }
-        await setConfig(config)
-        CONFIG = config
-        updateTray()
+    ipcMain.handle(
+      'connections:update',
+      async (_event, id: string, updates: Partial<Connection>) => {
+        const config = await getConfig()
+        const idx = config.connections.findIndex((c) => c.id === id)
+        if (idx !== -1) {
+          config.connections[idx] = { ...config.connections[idx], ...updates }
+          await setConfig(config)
+          CONFIG = config
+          updateTray()
+        }
+        return config.connections
       }
-      return config.connections
-    })
+    )
 
     ipcMain.handle('connections:setDefault', async (_event, id: string) => {
       const config = await getConfig()
@@ -1593,12 +1948,14 @@ if (!gotTheLock) {
               log.warn(`spotlight:captureRegion — screen recording permission: ${status}`)
               new Notification({
                 title: 'Screen Recording Permission Required',
-                body: 'Open WebUI needs Screen Recording access to capture screenshots. Please enable it in System Settings → Privacy & Security → Screen Recording, then restart the app.'
+                body: `${BRAND.name} needs Screen Recording access to capture screenshots. Please enable it in System Settings → Privacy & Security → Screen Recording, then restart the app.`
               }).show()
               // Open the correct System Preferences pane
-              shell.openExternal(
-                'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
-              ).catch(() => {})
+              shell
+                .openExternal(
+                  'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
+                )
+                .catch(() => {})
               return 'no-permission'
             }
           }
@@ -1623,8 +1980,7 @@ if (!gotTheLock) {
           })
 
           // Find the source matching this display
-          const source =
-            sources.find((s) => s.display_id === String(display.id)) || sources[0]
+          const source = sources.find((s) => s.display_id === String(display.id)) || sources[0]
           if (!source) {
             spotlightWindow?.setOpacity(1)
             return null
@@ -1676,94 +2032,105 @@ if (!gotTheLock) {
     })
 
     // Transcribe audio via the connected server's STT endpoint
-    ipcMain.handle('voiceInput:transcribe', async (_event, audioBuffer: ArrayBuffer, rendererToken?: string) => {
-      try {
-        const config = await getConfig()
-        if (!config.defaultConnectionId || config.connections.length === 0) {
-          throw new Error('No connection configured. Set up a connection in Settings first.')
-        }
-        const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
-        if (!conn) throw new Error('Default connection not found. Check your connection settings.')
-
-        let url = conn.url
-        if (conn.type === 'local' && SERVER_URL) {
-          url = SERVER_URL
-        }
-        if (url.startsWith('http://0.0.0.0')) {
-          url = url.replace('http://0.0.0.0', 'http://localhost')
-        }
-
-        // Use stored auth token (relayed from webview), fall back to renderer-provided or contentWindow
-        let token = AUTH_TOKEN || rendererToken || ''
-        if (!token) {
-          // Scan all webContents to find the Open WebUI webview and read its token
-          try {
-            const { webContents: wc } = require('electron')
-            const allContents = wc.getAllWebContents()
-            for (const contents of allContents) {
-              try {
-                if (contents.getType() === 'webview' && !contents.isDestroyed()) {
-                  const t = await contents.executeJavaScript(
-                    `localStorage.getItem('token') || ''`
-                  )
-                  if (t) { token = t; break }
-                }
-              } catch {
-                // Skip inaccessible webContents
-              }
-            }
-          } catch {
-            log.warn('voiceInput:transcribe — could not extract token from webviews')
+    ipcMain.handle(
+      'voiceInput:transcribe',
+      async (_event, audioBuffer: ArrayBuffer, rendererToken?: string) => {
+        try {
+          const config = await getConfig()
+          if (!config.defaultConnectionId || config.connections.length === 0) {
+            throw new Error('No connection configured. Set up a connection in Settings first.')
           }
+          const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
+          if (!conn)
+            throw new Error('Default connection not found. Check your connection settings.')
+
+          let url = conn.url
+          if (conn.type === 'local' && SERVER_URL) {
+            url = SERVER_URL
+          }
+          if (url.startsWith('http://0.0.0.0')) {
+            url = url.replace('http://0.0.0.0', 'http://localhost')
+          }
+
+          // Use stored auth token (relayed from webview), fall back to renderer-provided or contentWindow
+          let token = AUTH_TOKEN || rendererToken || ''
+          if (!token) {
+            // Scan all webContents to find the Open WebUI webview and read its token
+            try {
+              const { webContents: wc } = require('electron')
+              const allContents = wc.getAllWebContents()
+              for (const contents of allContents) {
+                try {
+                  if (contents.getType() === 'webview' && !contents.isDestroyed()) {
+                    const t = await contents.executeJavaScript(
+                      `localStorage.getItem('token') || ''`
+                    )
+                    if (t) {
+                      token = t
+                      break
+                    }
+                  }
+                } catch {
+                  // Skip inaccessible webContents
+                }
+              }
+            } catch {
+              log.warn('voiceInput:transcribe — could not extract token from webviews')
+            }
+          }
+
+          if (!token) {
+            throw new Error(
+              'Not authenticated. Open a connection and sign in before using voice input.'
+            )
+          }
+
+          // Build multipart form data manually using Node.js
+          const boundary = '----VoiceInput' + Date.now()
+          const buffer = Buffer.from(audioBuffer)
+          const filename = `recording-${Date.now()}.wav`
+
+          const header = [
+            `--${boundary}`,
+            `Content-Disposition: form-data; name="file"; filename="${filename}"`,
+            `Content-Type: audio/wav`,
+            '',
+            ''
+          ].join('\r\n')
+
+          const footer = `\r\n--${boundary}--\r\n`
+          const headerBuf = Buffer.from(header, 'utf-8')
+          const footerBuf = Buffer.from(footer, 'utf-8')
+          const body = Buffer.concat([headerBuf, buffer, footerBuf])
+
+          const response = await fetch(`${url}/api/v1/audio/transcriptions`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': `multipart/form-data; boundary=${boundary}`
+            },
+            body
+          })
+
+          if (!response.ok) {
+            const text = await response.text().catch(() => '')
+            throw new Error(
+              `Transcription failed (HTTP ${response.status}). ${text || 'Check that your server has Speech-to-Text configured.'}`
+            )
+          }
+
+          const result = await response.json()
+          return result
+        } catch (error: any) {
+          log.error('voiceInput:transcribe failed:', error)
+          new Notification({
+            title: 'Voice Input Failed',
+            body: error?.message || 'Transcription failed. Check logs for details.'
+          }).show()
+          throw error
         }
-
-        if (!token) {
-          throw new Error('Not authenticated. Open a connection and sign in before using voice input.')
-        }
-
-        // Build multipart form data manually using Node.js
-        const boundary = '----VoiceInput' + Date.now()
-        const buffer = Buffer.from(audioBuffer)
-        const filename = `recording-${Date.now()}.wav`
-
-        const header = [
-          `--${boundary}`,
-          `Content-Disposition: form-data; name="file"; filename="${filename}"`,
-          `Content-Type: audio/wav`,
-          '',
-          ''
-        ].join('\r\n')
-
-        const footer = `\r\n--${boundary}--\r\n`
-        const headerBuf = Buffer.from(header, 'utf-8')
-        const footerBuf = Buffer.from(footer, 'utf-8')
-        const body = Buffer.concat([headerBuf, buffer, footerBuf])
-
-        const response = await fetch(`${url}/api/v1/audio/transcriptions`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': `multipart/form-data; boundary=${boundary}`
-          },
-          body
-        })
-
-        if (!response.ok) {
-          const text = await response.text().catch(() => '')
-          throw new Error(`Transcription failed (HTTP ${response.status}). ${text || 'Check that your server has Speech-to-Text configured.'}`)
-        }
-
-        const result = await response.json()
-        return result
-      } catch (error: any) {
-        log.error('voiceInput:transcribe failed:', error)
-        new Notification({
-          title: 'Voice Input Failed',
-          body: error?.message || 'Transcription failed. Check logs for details.'
-        }).show()
-        throw error
       }
-    })
+    )
 
     // Voice input completed — deliver text to chat
     ipcMain.handle('voiceInput:done', async (_event, text: string) => {
@@ -1984,29 +2351,56 @@ if (!gotTheLock) {
     ipcMain.handle('huggingface:repo:files', async (_event, repo: string, token?: string) => {
       return getRepoFiles(repo, token)
     })
-    ipcMain.handle('huggingface:models:download', async (_event, repo: string, filename: string, token?: string, expectedSize?: number) => {
-      try {
-        sendToRenderer('status:huggingface-download', { repo, filename, status: 'downloading', percent: 0 })
-        const filepath = await downloadModel(repo, filename, (progress) => {
+    ipcMain.handle(
+      'huggingface:models:download',
+      async (_event, repo: string, filename: string, token?: string, expectedSize?: number) => {
+        try {
           sendToRenderer('status:huggingface-download', {
-            repo, filename,
+            repo,
+            filename,
             status: 'downloading',
-            percent: progress.percent,
-            downloadedBytes: progress.downloadedBytes,
-            totalBytes: progress.totalBytes
+            percent: 0
           })
-        }, token, expectedSize)
-        sendToRenderer('status:huggingface-download', { repo, filename, status: 'done', filepath })
-        return filepath
-      } catch (error) {
-        log.error('Failed to download model:', error)
-        sendToRenderer('status:huggingface-download', { repo, filename, status: 'failed', error: error?.message })
-        sendToRenderer('error', { message: `Model download failed: ${error?.message}` })
-        return null
+          const filepath = await downloadModel(
+            repo,
+            filename,
+            (progress) => {
+              sendToRenderer('status:huggingface-download', {
+                repo,
+                filename,
+                status: 'downloading',
+                percent: progress.percent,
+                downloadedBytes: progress.downloadedBytes,
+                totalBytes: progress.totalBytes
+              })
+            },
+            token,
+            expectedSize
+          )
+          sendToRenderer('status:huggingface-download', {
+            repo,
+            filename,
+            status: 'done',
+            filepath
+          })
+          return filepath
+        } catch (error) {
+          log.error('Failed to download model:', error)
+          sendToRenderer('status:huggingface-download', {
+            repo,
+            filename,
+            status: 'failed',
+            error: error?.message
+          })
+          sendToRenderer('error', { message: `Model download failed: ${error?.message}` })
+          return null
+        }
       }
-    })
+    )
 
-    ipcMain.handle('package:version', (_event, packageName: string) => getPackageVersion(packageName))
+    ipcMain.handle('package:version', (_event, packageName: string) =>
+      getPackageVersion(packageName)
+    )
     ipcMain.handle('package:uninstall', async (_event, packageName: string) => {
       return uninstallPackage(packageName)
     })
@@ -2015,7 +2409,7 @@ if (!gotTheLock) {
       const result = await dialog.showOpenDialog(mainWindow!, {
         properties: ['openDirectory']
       })
-      return result.canceled ? null : result.filePaths[0] ?? null
+      return result.canceled ? null : (result.filePaths[0] ?? null)
     })
 
     ipcMain.handle('app:launchAtLogin:get', () => {
@@ -2073,13 +2467,16 @@ if (!gotTheLock) {
     // Create tray
     const trayIcon = nativeImage.createFromPath(icon)
     tray = new Tray(trayIcon.resize({ width: 16, height: 16 }))
-    tray.setToolTip('Open WebUI')
+    tray.setToolTip(BRAND.name)
     updateTray()
 
-
-
     // Global shortcut
-    registerShortcuts(CONFIG.globalShortcut, CONFIG.spotlightShortcut, CONFIG.voiceInputShortcut, CONFIG.callShortcut)
+    registerShortcuts(
+      CONFIG.globalShortcut,
+      CONFIG.spotlightShortcut,
+      CONFIG.voiceInputShortcut,
+      CONFIG.callShortcut
+    )
 
     // Enable screen capture
     session.defaultSession.setDisplayMediaRequestHandler(
@@ -2123,11 +2520,15 @@ if (!gotTheLock) {
       }
     }
 
-    // Check if already configured, auto-connect to default
-    if (CONFIG.defaultConnectionId && CONFIG.connections.length > 0) {
-      const defaultConn = CONFIG.connections.find(
-        (c) => c.id === CONFIG.defaultConnectionId
-      )
+    const startupProtocolUrl = pendingProtocolUrl || findProtocolUrl(process.argv)
+    pendingProtocolUrl = null
+
+    // Check if launched from a desktop magic link before regular auto-connect.
+    if (startupProtocolUrl) {
+      createMainWindow()
+      await handleProtocolUrl(startupProtocolUrl)
+    } else if (CONFIG.defaultConnectionId && CONFIG.connections.length > 0) {
+      const defaultConn = CONFIG.connections.find((c) => c.id === CONFIG.defaultConnectionId)
       if (defaultConn) {
         createMainWindow()
         const result = await connectTo(defaultConn)

@@ -1,6 +1,7 @@
 import { autoUpdater, type UpdateInfo } from 'electron-updater'
 import log from 'electron-log'
 import { app, BrowserWindow } from 'electron'
+import { APP_PROFILE } from '../shared/profile'
 
 let mainWin: BrowserWindow | null = null
 
@@ -14,6 +15,19 @@ export function initUpdater(window: BrowserWindow): void {
   autoUpdater.logger = log
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
+  const updateProvider = APP_PROFILE.updates.provider as string
+  if (updateProvider === 'generic' && APP_PROFILE.updates.url) {
+    autoUpdater.setFeedURL({
+      provider: 'generic',
+      url: APP_PROFILE.updates.url
+    })
+  } else if (updateProvider === 'github') {
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: APP_PROFILE.updates.owner,
+      repo: APP_PROFILE.updates.repo
+    })
+  }
 
   autoUpdater.on('checking-for-update', () => {
     send('update:checking')

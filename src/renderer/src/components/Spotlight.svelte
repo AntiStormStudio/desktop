@@ -23,7 +23,9 @@
   const showError = (msg: string, duration = 4000) => {
     errorMsg = msg
     if (errorTimer) clearTimeout(errorTimer)
-    errorTimer = setTimeout(() => { errorMsg = '' }, duration)
+    errorTimer = setTimeout(() => {
+      errorMsg = ''
+    }, duration)
   }
 
   // ─── Submit ───
@@ -61,7 +63,8 @@
 
   const onWrapperMouseDown = (e: MouseEvent) => {
     // Ignore if it's on the bar or preview
-    if ((e.target as HTMLElement).closest('.bar') || (e.target as HTMLElement).closest('.preview')) return
+    if ((e.target as HTMLElement).closest('.bar') || (e.target as HTMLElement).closest('.preview'))
+      return
     e.preventDefault()
     selStart = { x: e.clientX, y: e.clientY }
     selecting = true
@@ -191,17 +194,15 @@
 
   <!-- Floating bar -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="bar"
-    style="left:{barX}px;top:{barY}px"
-    onmousedown={onBarMouseDown}
-  >
+  <div class="bar" style="left:{barX}px;top:{barY}px" onmousedown={onBarMouseDown}>
     {#if images.length > 0}
       <div class="attachments">
         {#each images as img, i}
           <div class="preview-item">
             <img src={img} alt="Screenshot {i + 1}" />
-            <button class="preview-remove" onclick={() => removeImage(i)} aria-label="Remove">×</button>
+            <button class="preview-remove" onclick={() => removeImage(i)} aria-label="Remove"
+              >×</button
+            >
           </div>
         {/each}
       </div>
@@ -225,8 +226,22 @@
         }}
       />
 
-      <button class="send" class:active={query.trim().length > 0 || images.length > 0} aria-label="Send" onclick={submit}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <button
+        class="send"
+        class:active={query.trim().length > 0 || images.length > 0}
+        aria-label="Send"
+        onclick={submit}
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M12 19V5" />
           <path d="M5 12l7-7 7 7" />
         </svg>
@@ -237,8 +252,19 @@
   <!-- Screenshot hint -->
   {#if showHint && images.length === 0 && !selecting}
     <div class="hint">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 8V6a2 2 0 012-2h2" /><path d="M4 16v2a2 2 0 002 2h2" /><path d="M16 4h2a2 2 0 012 2v2" /><path d="M16 20h2a2 2 0 002-2v-2" />
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M4 8V6a2 2 0 012-2h2" /><path d="M4 16v2a2 2 0 002 2h2" /><path
+          d="M16 4h2a2 2 0 012 2v2"
+        /><path d="M16 20h2a2 2 0 002-2v-2" />
       </svg>
       Drag anywhere to capture a screenshot
     </div>
@@ -256,8 +282,14 @@
     src: url('../lib/assets/fonts/Archivo-Variable.ttf');
     font-display: swap;
   }
-  :global(*) { margin: 0; padding: 0; box-sizing: border-box; }
-  :global(html), :global(body), :global(#app) {
+  :global(*) {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  :global(html),
+  :global(body),
+  :global(#app) {
     height: 100%;
     width: 100%;
     background: transparent;
@@ -290,17 +322,34 @@
     border-radius: 1px;
     box-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
   }
-  .handle.tl { top: -3px; left: -3px; }
-  .handle.tr { top: -3px; right: -3px; }
-  .handle.bl { bottom: -3px; left: -3px; }
-  .handle.br { bottom: -3px; right: -3px; }
+  .handle.tl {
+    top: -3px;
+    left: -3px;
+  }
+  .handle.tr {
+    top: -3px;
+    right: -3px;
+  }
+  .handle.bl {
+    bottom: -3px;
+    left: -3px;
+  }
+  .handle.br {
+    bottom: -3px;
+    right: -3px;
+  }
 
   .dimensions {
     position: absolute;
     transform: translateX(-50%);
     padding: 3px 8px;
     border-radius: 4px;
-    font-family: 'Archivo', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family:
+      'Archivo',
+      -apple-system,
+      BlinkMacSystemFont,
+      system-ui,
+      sans-serif;
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 0.02em;
@@ -318,7 +367,12 @@
     display: flex;
     flex-direction: column;
     border-radius: 14px;
-    font-family: 'Archivo', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family:
+      'Archivo',
+      -apple-system,
+      BlinkMacSystemFont,
+      system-ui,
+      sans-serif;
     cursor: grab;
     z-index: 100;
     overflow: hidden;
@@ -359,7 +413,9 @@
   }
 
   @media (prefers-color-scheme: dark) {
-    .logo { filter: invert(1); }
+    .logo {
+      filter: invert(1);
+    }
   }
 
   input {
@@ -382,8 +438,12 @@
   }
 
   @media (prefers-color-scheme: dark) {
-    input { color: #fafafa; }
-    input::placeholder { color: rgba(255, 255, 255, 0.18); }
+    input {
+      color: #fafafa;
+    }
+    input::placeholder {
+      color: rgba(255, 255, 255, 0.18);
+    }
   }
 
   .send {
@@ -408,8 +468,12 @@
     color: #fff;
   }
 
-  .send.active:hover { opacity: 0.8; }
-  .send.active:active { transform: scale(0.92); }
+  .send.active:hover {
+    opacity: 0.8;
+  }
+  .send.active:active {
+    transform: scale(0.92);
+  }
 
   @media (prefers-color-scheme: dark) {
     .send {
@@ -477,7 +541,12 @@
     transform: translateX(-50%);
     padding: 10px 20px;
     border-radius: 10px;
-    font-family: 'Archivo', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family:
+      'Archivo',
+      -apple-system,
+      BlinkMacSystemFont,
+      system-ui,
+      sans-serif;
     font-size: 14px;
     font-weight: 500;
     color: #fff;
@@ -490,8 +559,14 @@
   }
 
   @keyframes toast-in {
-    from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
   }
 
   /* ─── Screenshot Hint ─── */
@@ -505,7 +580,12 @@
     gap: 8px;
     padding: 8px 16px;
     border-radius: 10px;
-    font-family: 'Archivo', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family:
+      'Archivo',
+      -apple-system,
+      BlinkMacSystemFont,
+      system-ui,
+      sans-serif;
     font-size: 13px;
     font-weight: 450;
     z-index: 200;
@@ -520,7 +600,13 @@
   }
 
   @keyframes hint-in {
-    from { opacity: 0; transform: translateX(-50%) translateY(6px); }
-    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
   }
 </style>

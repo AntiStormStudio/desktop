@@ -75,7 +75,8 @@
       // Request system-level mic permission (macOS) before activating the mic
       const permStatus = await api?.checkMicPermission()
       if (permStatus === 'denied') {
-        const msg = 'Microphone access denied. Enable it in System Settings → Privacy & Security → Microphone, then restart the app.'
+        const msg =
+          'Microphone access denied. Enable it in System Settings → Privacy & Security → Microphone, then restart the app.'
         showError(msg)
         api?.error(msg)
         return
@@ -103,13 +104,16 @@
       }
 
       mediaRecorder.start(250)
-      timer = setInterval(() => { duration++ }, 1000)
+      timer = setInterval(() => {
+        duration++
+      }, 1000)
     } catch (err: any) {
-      const msg = err?.name === 'NotAllowedError'
-        ? 'Microphone access denied. Check system permissions.'
-        : err?.name === 'NotFoundError'
-          ? 'No microphone found. Connect a microphone and try again.'
-          : err?.message || 'Mic access failed'
+      const msg =
+        err?.name === 'NotAllowedError'
+          ? 'Microphone access denied. Check system permissions.'
+          : err?.name === 'NotFoundError'
+            ? 'No microphone found. Connect a microphone and try again.'
+            : err?.message || 'Mic access failed'
       showError(msg)
       api?.error(msg)
     }
@@ -118,8 +122,14 @@
   const cleanup = () => {
     recording = false
     transcribing = false
-    if (timer) { clearInterval(timer); timer = null }
-    if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null }
+    if (timer) {
+      clearInterval(timer)
+      timer = null
+    }
+    if (animFrame) {
+      cancelAnimationFrame(animFrame)
+      animFrame = null
+    }
     levels = Array(5).fill(0.15)
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       mediaRecorder.stop()
@@ -154,8 +164,14 @@
     }
 
     recording = false
-    if (timer) { clearInterval(timer); timer = null }
-    if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null }
+    if (timer) {
+      clearInterval(timer)
+      timer = null
+    }
+    if (animFrame) {
+      cancelAnimationFrame(animFrame)
+      animFrame = null
+    }
     levels = Array(5).fill(0.15)
 
     const audioBlob = await new Promise<Blob>((resolve) => {
@@ -210,7 +226,9 @@
     )
   }
 
-  const onMouseUp = () => { dragging = false }
+  const onMouseUp = () => {
+    dragging = false
+  }
 
   onMount(() => {
     api?.onRecordingState((data) => {
@@ -226,7 +244,9 @@
 </script>
 
 <svelte:window
-  onkeydown={(e) => { if (e.key === 'Escape') cancelRecording() }}
+  onkeydown={(e) => {
+    if (e.key === 'Escape') cancelRecording()
+  }}
   onmousemove={onMouseMove}
   onmouseup={onMouseUp}
 />
@@ -253,9 +273,16 @@
     src: url('../lib/assets/fonts/Archivo-Variable.ttf');
     font-display: swap;
   }
-  :global(*) { margin: 0; padding: 0; box-sizing: border-box; }
-  :global(html), :global(body), :global(#app) {
-    height: 100%; width: 100%;
+  :global(*) {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  :global(html),
+  :global(body),
+  :global(#app) {
+    height: 100%;
+    width: 100%;
     background: transparent;
     overflow: hidden;
     user-select: none;
@@ -264,7 +291,8 @@
 
   .pill {
     position: absolute;
-    top: 50%; left: 50%;
+    top: 50%;
+    left: 50%;
     transform: translate(-50%, -50%);
     display: inline-flex;
     align-items: center;
@@ -273,7 +301,12 @@
     height: 44px;
     border-radius: 22px;
     cursor: grab;
-    font-family: 'Archivo', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family:
+      'Archivo',
+      -apple-system,
+      BlinkMacSystemFont,
+      system-ui,
+      sans-serif;
     animation: appear 0.15s ease-out;
 
     background: rgba(30, 30, 30, 0.78);
@@ -285,11 +318,19 @@
       inset 0 0.5px 0 rgba(255, 255, 255, 0.06);
   }
 
-  .pill:active { cursor: grabbing; }
+  .pill:active {
+    cursor: grabbing;
+  }
 
   @keyframes appear {
-    from { opacity: 0; transform: translate(-50%, -50%) scale(0.92); }
-    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    from {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.92);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
   }
 
   .bars {
@@ -326,7 +367,9 @@
   }
 
   @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .err {

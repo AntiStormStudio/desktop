@@ -14,18 +14,18 @@ Your AI, right on your desktop. [Open WebUI](https://github.com/open-webui/open-
 
 ## Download
 
-| Platform | Installer |
-|----------|-----------|
-| macOS (Apple Silicon) | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64.dmg) |
-| macOS (Intel) | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64.dmg) |
-| Windows x64 | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64-setup.exe) |
-| Windows ARM64 | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64-setup.exe) |
-| Linux x64 (AppImage) | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_x64.AppImage) |
-| Linux x64 (Debian/Ubuntu) | [**Download .deb**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.deb) |
-| Linux x64 (Snap) | [**Download .snap**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.snap) |
-| Linux x64 (Flatpak) | [**Download .flatpak**](https://github.com/open-webui/desktop/releases/latest/download/open-webui.flatpak) |
-| Linux ARM64 (AppImage) | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_arm64.AppImage) |
-| Linux ARM64 (Debian/Ubuntu) | [**Download .deb**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_arm64.deb) |
+| Platform                    | Installer                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| macOS (Apple Silicon)       | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64.dmg)           |
+| macOS (Intel)               | [**Download .dmg**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64.dmg)             |
+| Windows x64                 | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-x64-setup.exe)       |
+| Windows ARM64               | [**Download .exe**](https://github.com/open-webui/desktop/releases/latest/download/open-webui-arm64-setup.exe)     |
+| Linux x64 (AppImage)        | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_x64.AppImage)   |
+| Linux x64 (Debian/Ubuntu)   | [**Download .deb**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.deb)           |
+| Linux x64 (Snap)            | [**Download .snap**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_amd64.snap)         |
+| Linux x64 (Flatpak)         | [**Download .flatpak**](https://github.com/open-webui/desktop/releases/latest/download/open-webui.flatpak)         |
+| Linux ARM64 (AppImage)      | [**Download .AppImage**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_arm64.AppImage) |
+| Linux ARM64 (Debian/Ubuntu) | [**Download .deb**](https://github.com/open-webui/desktop/releases/latest/download/open-webui_arm64.deb)           |
 
 Internet required on first launch. After that, everything works offline. [All releases →](https://github.com/open-webui/desktop/releases)
 
@@ -50,11 +50,11 @@ Use both at the same time.
 
 ## System Requirements
 
-|  | Local Models | Remote Only |
-|--|-------------|-------------|
-| **Disk** | 5 GB+ | ~500 MB |
-| **RAM** | 16 GB+ | 4 GB |
-| **OS** | macOS 12+, Windows 10+, modern Linux (glibc 2.28+) | Same |
+|          | Local Models                                       | Remote Only |
+| -------- | -------------------------------------------------- | ----------- |
+| **Disk** | 5 GB+                                              | ~500 MB     |
+| **RAM**  | 16 GB+                                             | 4 GB        |
+| **OS**   | macOS 12+, Windows 10+, modern Linux (glibc 2.28+) | Same        |
 
 > [!NOTE]
 > Local models need serious RAM (7B ≈ 8 GB, 13B ≈ 16 GB). Lighter machine? Connect to a remote server instead.

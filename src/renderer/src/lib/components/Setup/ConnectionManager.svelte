@@ -3,6 +3,7 @@
   import { onMount } from 'svelte'
   import { connections, config, appState, appInfo } from '../../stores'
   import i18n from '../../i18n'
+  import { APP_PROFILE } from '../../profile'
 
   import logoImage from '../../assets/images/splash.png'
 
@@ -16,7 +17,9 @@
   onMount(async () => {
     connections.set(await window.electronAPI.getConnections())
     config.set(await window.electronAPI.getConfig())
-    setTimeout(() => { visible = true }, 50)
+    setTimeout(() => {
+      visible = true
+    }, 50)
   })
 
   const add = async () => {
@@ -27,7 +30,11 @@
     connecting = true
     try {
       const valid = await window.electronAPI.validateUrl(u)
-      if (!valid) { error = $i18n.t('setup.connectionManager.unreachable'); connecting = false; return }
+      if (!valid) {
+        error = $i18n.t('setup.connectionManager.unreachable')
+        connecting = false
+        return
+      }
       await window.electronAPI.addConnection({
         id: crypto.randomUUID(),
         name: name.trim() || new URL(u).hostname,
@@ -36,9 +43,14 @@
       })
       connections.set(await window.electronAPI.getConnections())
       config.set(await window.electronAPI.getConfig())
-      url = ''; name = ''; view = 'list'
-    } catch { error = $i18n.t('setup.connectionManager.failed') }
-    finally { connecting = false }
+      url = ''
+      name = ''
+      view = 'list'
+    } catch {
+      error = $i18n.t('setup.connectionManager.failed')
+    } finally {
+      connecting = false
+    }
   }
 
   const connect = (id: string) => window.electronAPI.connectTo(id)
@@ -56,9 +68,16 @@
 </script>
 
 {#if visible}
-  <div class="h-full flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]" in:fade={{ duration: 250 }}>
+  <div
+    class="h-full flex flex-col bg-[#f5f5f7] dark:bg-[#0a0a0a] text-[#1d1d1f] dark:text-[#fafafa]"
+    in:fade={{ duration: 250 }}
+  >
     <!-- Header -->
-    <div class="flex items-center justify-between {$appInfo?.platform === 'darwin' ? 'pl-[76px]' : 'pl-5'} pr-5 pt-3 pb-2 drag-region">
+    <div
+      class="flex items-center justify-between {$appInfo?.platform === 'darwin'
+        ? 'pl-[76px]'
+        : 'pl-5'} pr-5 pt-3 pb-2 drag-region"
+    >
       <div class="text-[13px] opacity-50">{$i18n.t('setup.connectionManager.connections')}</div>
       <img src={logoImage} class="w-5 h-5 rounded-full dark:invert opacity-40" alt="logo" />
     </div>
@@ -71,14 +90,21 @@
         <div class="flex flex-col">
           {#each $connections as conn, i (conn.id)}
             <div
-              class="w-full py-3 cursor-pointer group flex items-center gap-3 transition-opacity hover:opacity-100 opacity-70 {i > 0 ? 'border-t border-black/[0.04] dark:border-white/[0.04]' : ''}"
+              class="w-full py-3 cursor-pointer group flex items-center gap-3 transition-opacity hover:opacity-100 opacity-70 {i >
+              0
+                ? 'border-t border-black/[0.04] dark:border-white/[0.04]'
+                : ''}"
               role="button"
               tabindex="0"
               onclick={() => connect(conn.id)}
               onkeydown={(e) => e.key === 'Enter' && connect(conn.id)}
               in:fly={{ y: 4, duration: 150, delay: i * 30 }}
             >
-              <div class="w-[6px] h-[6px] rounded-full shrink-0 {conn.type === 'local' ? 'bg-green-400/70' : 'bg-black/8 dark:bg-white/10'}"></div>
+              <div
+                class="w-[6px] h-[6px] rounded-full shrink-0 {conn.type === 'local'
+                  ? 'bg-green-400/70'
+                  : 'bg-black/8 dark:bg-white/10'}"
+              ></div>
 
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
@@ -90,44 +116,60 @@
                 <span class="text-[11px] opacity-20 truncate block mt-px">{conn.url}</span>
               </div>
 
-              <div class="shrink-0 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div
+                class="shrink-0 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
                 {#if $config?.defaultConnectionId !== conn.id}
                   <button
                     class="p-1.5 opacity-20 hover:opacity-60 text-[10px] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
-                    onclick={(e) => { e.stopPropagation(); setDefault(conn.id) }}
-                  >★</button>
+                    onclick={(e) => {
+                      e.stopPropagation()
+                      setDefault(conn.id)
+                    }}>★</button
+                  >
                 {/if}
                 <button
                   class="p-1.5 opacity-20 hover:text-red-400 hover:opacity-80 text-[10px] transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
-                  onclick={(e) => { e.stopPropagation(); remove(conn.id) }}
-                >✕</button>
+                  onclick={(e) => {
+                    e.stopPropagation()
+                    remove(conn.id)
+                  }}>✕</button
+                >
               </div>
             </div>
           {:else}
             <div class="flex-1 flex items-center justify-center py-16">
-              <span class="text-[13px] opacity-15">{$i18n.t('setup.connectionManager.noConnections')}</span>
+              <span class="text-[13px] opacity-15"
+                >{$i18n.t('setup.connectionManager.noConnections')}</span
+              >
             </div>
           {/each}
         </div>
 
         <!-- Add button -->
-        <button
-          class="mt-4 inline-flex items-center gap-2 text-[13px] opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
-          onclick={() => (view = 'add')}
-        >
-          {$i18n.t('setup.connectionManager.addConnection')}
-        </button>
-
-      {:else if view === 'add'}
+        {#if APP_PROFILE.features.allowUserRemoteOpenWebUI}
+          <button
+            class="mt-4 inline-flex items-center gap-2 text-[13px] opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
+            onclick={() => (view = 'add')}
+          >
+            {$i18n.t('setup.connectionManager.addConnection')}
+          </button>
+        {/if}
+      {:else if view === 'add' && APP_PROFILE.features.allowUserRemoteOpenWebUI}
         <div in:fade={{ duration: 150 }}>
           <button
             class="text-[12px] opacity-40 hover:opacity-70 transition mb-6 bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
-            onclick={() => { view = 'list'; error = '' }}
+            onclick={() => {
+              view = 'list'
+              error = ''
+            }}
           >
             {$i18n.t('common.back')}
           </button>
 
-          <div class="text-2xl font-light tracking-tight mb-5">{$i18n.t('setup.connectionManager.addConnectionTitle')}</div>
+          <div class="text-2xl font-light tracking-tight mb-5">
+            {$i18n.t('setup.connectionManager.addConnectionTitle')}
+          </div>
 
           <div class="flex flex-col gap-2.5">
             <input
@@ -151,10 +193,22 @@
               onclick={add}
               disabled={connecting}
             >
-              {connecting ? $i18n.t('setup.connectionManager.adding') : $i18n.t('setup.connectionManager.add')}
+              {connecting
+                ? $i18n.t('setup.connectionManager.adding')
+                : $i18n.t('setup.connectionManager.add')}
               {#if !connecting}
-                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                <svg
+                  class="h-3.5 w-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M17 8l4 4m0 0l-4 4m4-4H3"
+                  />
                 </svg>
               {/if}
             </button>

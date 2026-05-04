@@ -1,4 +1,5 @@
 import { ipcRenderer, contextBridge } from 'electron'
+import { APP_PROFILE } from '../shared/profile'
 
 // ─── Desktop ↔ Open WebUI Generic Protocol ──────────────
 // This preload is a dumb relay. It passes typed {type, data}
@@ -24,7 +25,7 @@ contextBridge.exposeInMainWorld('applyTheme', () => {
 })
 
 // Expose to the Open WebUI page via contextBridge (secure, unforgeable)
-contextBridge.exposeInMainWorld('electronAPI', {
+const desktopBridge = {
   // Push events: desktop → Open WebUI
   onEvent: (callback: EventCallback): void => {
     eventCallbacks.push(callback)
@@ -48,5 +49,41 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Navigation: Open WebUI → desktop
   load: (page: string): void => {
     ipcRenderer.sendToHost('webview:load', page)
+  },
+
+  invoke: (request: { capability: string; action?: string; payload?: any }): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const id = Math.random().toString(36).slice(2)
+      const handler = (_event: any, response: any) => {
+        if (response?._responseId !== id) return
+        ipcRenderer.removeListener('desktop:response', handler)
+        if (response.error) {
+          reject(new Error(response.error))
+        } else {
+          resolve(response.data)
+        }
+      }
+      ipcRenderer.on('desktop:response', handler)
+      ipcRenderer.sendToHost('webview:send', {
+        type: 'desktop:invoke',
+        capability: request.capability,
+        action: request.action ?? 'default',
+        payload: request.payload ?? null,
+        _requestId: id
+      })
+    })
   }
-})
+}
+
+if (APP_PROFILE.features.allowRemoteDesktopBridge) {
+  contextBridge.exposeInMainWorld('electronAPI', desktopBridge)
+  contextBridge.exposeInMainWorld('openWebUIDesktop', {
+    version: 1,
+    capabilities: {
+      invoke: desktopBridge.invoke,
+      onEvent: desktopBridge.onEvent
+    },
+    invoke: desktopBridge.invoke,
+    onEvent: desktopBridge.onEvent
+  })
+}

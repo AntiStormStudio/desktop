@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte'
   import { appInfo } from '../../../stores'
   import i18n from '../../../i18n'
+  import { APP_PROFILE } from '../../../profile'
   import logoImage from '../../../assets/images/splash-dark.png'
 
   let openWebuiVersion = $state<string | null>(null)
@@ -9,7 +10,14 @@
   let llamaCppVersion = $state<string | null>(null)
 
   // Update state
-  type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'up-to-date' | 'error'
+  type UpdateStatus =
+    | 'idle'
+    | 'checking'
+    | 'available'
+    | 'downloading'
+    | 'downloaded'
+    | 'up-to-date'
+    | 'error'
   let updateStatus = $state<UpdateStatus>('idle')
   let updateVersion = $state<string | null>(null)
   let downloadPercent = $state(0)
@@ -32,11 +40,12 @@
   let showTypewriter = $state(false)
   let typewriterTimers: ReturnType<typeof setTimeout>[] = []
 
-
   const handleVersionClick = () => {
     clickCount++
     if (clickTimer) clearTimeout(clickTimer)
-    clickTimer = setTimeout(() => { clickCount = 0 }, 800)
+    clickTimer = setTimeout(() => {
+      clickCount = 0
+    }, 800)
 
     if (clickCount >= 7) {
       clickCount = 0
@@ -68,9 +77,11 @@
       if (lineIdx >= lines.length) {
         // All lines done — show logo with knock sound
         showTypewriter = false
-        typewriterTimers.push(setTimeout(() => {
-          showReveal = true
-        }, 800))
+        typewriterTimers.push(
+          setTimeout(() => {
+            showReveal = true
+          }, 800)
+        )
         return
       }
       const line = lines[lineIdx]
@@ -85,12 +96,14 @@
           typewriterTimers.push(setTimeout(typeChar, 140 + Math.random() * 60))
         } else {
           // Hold, then clear and move to next line
-          typewriterTimers.push(setTimeout(() => {
-            typewriterText = ''
-            showTypewriter = false
-            lineIdx++
-            typewriterTimers.push(setTimeout(typeLine, 600))
-          }, 1800))
+          typewriterTimers.push(
+            setTimeout(() => {
+              typewriterText = ''
+              showTypewriter = false
+              lineIdx++
+              typewriterTimers.push(setTimeout(typeLine, 600))
+            }, 1800)
+          )
         }
       }
       typewriterTimers.push(setTimeout(typeChar, 400))
@@ -106,7 +119,7 @@
     showReveal = false
     showTypewriter = false
     typewriterText = ''
-    typewriterTimers.forEach(t => clearTimeout(t))
+    typewriterTimers.forEach((t) => clearTimeout(t))
     typewriterTimers = []
     if (dismissTimer) {
       clearTimeout(dismissTimer)
@@ -114,16 +127,18 @@
     }
     // Exit fullscreen first, then remove overlay after transition
     if (document.fullscreenElement) {
-      document.exitFullscreen?.().then(() => {
-        easterEggActive = false
-      }).catch(() => {
-        easterEggActive = false
-      })
+      document
+        .exitFullscreen?.()
+        .then(() => {
+          easterEggActive = false
+        })
+        .catch(() => {
+          easterEggActive = false
+        })
     } else {
       easterEggActive = false
     }
   }
-
 
   onMount(async () => {
     openWebuiVersion = await window.electronAPI.getPackageVersion('open-webui')
@@ -168,15 +183,19 @@
     cleanupDataListener?.()
     if (dismissTimer) clearTimeout(dismissTimer)
     if (clickTimer) clearTimeout(clickTimer)
-    typewriterTimers.forEach(t => clearTimeout(t))
+    typewriterTimers.forEach((t) => clearTimeout(t))
   })
 
   const openRelease = (repo: string, version: string, prefix = 'v') => {
-    window.electronAPI?.openInBrowser?.(`https://github.com/${repo}/releases/tag/${prefix}${version}`)
+    window.electronAPI?.openInBrowser?.(
+      `https://github.com/${repo}/releases/tag/${prefix}${version}`
+    )
   }
 
   const openGithub = () => {
-    window.electronAPI?.openInBrowser?.('https://github.com/open-webui/desktop')
+    window.electronAPI?.openInBrowser?.(
+      `https://github.com/${APP_PROFILE.brand.githubOwner}/${APP_PROFILE.brand.githubRepo}`
+    )
   }
 
   const handleCheck = async () => {
@@ -235,10 +254,16 @@
 
   const renderMarkdown = (md: string): string => {
     return md
-      .replace(/^### (.+)$/gm, '<div class="text-[11px] opacity-50 font-semibold mt-3 mb-1">$1</div>')
+      .replace(
+        /^### (.+)$/gm,
+        '<div class="text-[11px] opacity-50 font-semibold mt-3 mb-1">$1</div>'
+      )
       .replace(/^- (.+)$/gm, '<div class="text-[11px] opacity-40 pl-2 leading-relaxed">• $1</div>')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`(.+?)`/g, '<code class="text-[10px] bg-white/[0.06] px-1 py-0.5 rounded">$1</code>')
+      .replace(
+        /`(.+?)`/g,
+        '<code class="text-[10px] bg-white/[0.06] px-1 py-0.5 rounded">$1</code>'
+      )
   }
 </script>
 
@@ -267,7 +292,9 @@
       onclick={() => openRelease('open-webui/open-terminal', openTerminalVersion!)}
     >
       <div class="text-[13px] opacity-70">{$i18n.t('settings.about.openTerminalVersion')}</div>
-      <div class="text-[12px] opacity-30 group-hover:opacity-50 transition">{openTerminalVersion}</div>
+      <div class="text-[12px] opacity-30 group-hover:opacity-50 transition">
+        {openTerminalVersion}
+      </div>
     </button>
   {/if}
 
@@ -294,9 +321,13 @@
         {#if updateStatus === 'up-to-date'}
           <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.about.upToDate')}</div>
         {:else if updateStatus === 'available' && updateVersion}
-          <div class="text-[11px] opacity-40 mt-0.5">{$i18n.t('settings.about.versionAvailable', { version: updateVersion })}</div>
+          <div class="text-[11px] opacity-40 mt-0.5">
+            {$i18n.t('settings.about.versionAvailable', { version: updateVersion })}
+          </div>
         {:else if updateStatus === 'downloading'}
-          <div class="text-[11px] opacity-25 mt-0.5">{$i18n.t('settings.about.downloadingPercent', { percent: downloadPercent })}</div>
+          <div class="text-[11px] opacity-25 mt-0.5">
+            {$i18n.t('settings.about.downloadingPercent', { percent: downloadPercent })}
+          </div>
         {:else if updateStatus === 'downloaded'}
           <div class="text-[11px] opacity-40 mt-0.5">{$i18n.t('settings.about.updateReady')}</div>
         {:else if updateStatus === 'error'}
@@ -318,7 +349,15 @@
             disabled
           >
             <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round" />
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-dasharray="31.4 31.4"
+                stroke-linecap="round"
+              />
             </svg>
             {$i18n.t('settings.about.checking')}
           </button>
@@ -331,7 +370,9 @@
           </button>
         {:else if updateStatus === 'downloading'}
           <div class="flex items-center gap-2">
-            <div class="w-24 h-1.5 bg-black/[0.06] dark:bg-white/[0.06] rounded-full overflow-hidden">
+            <div
+              class="w-24 h-1.5 bg-black/[0.06] dark:bg-white/[0.06] rounded-full overflow-hidden"
+            >
               <div
                 class="h-full bg-black/[0.15] dark:bg-white/30 rounded-full transition-all duration-300"
                 style="width: {downloadPercent}%"
@@ -359,11 +400,14 @@
     >
       <svg
         class="w-3 h-3 transition-transform {changelogOpen ? 'rotate-90' : ''}"
-        fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="2"
       >
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
       </svg>
-       {$i18n.t('settings.about.whatsNew')}
+      {$i18n.t('settings.about.whatsNew')}
     </button>
 
     {#if changelogOpen}
@@ -406,14 +450,15 @@
   </div>
 </div>
 
-<div class="text-[10px] opacity-15 mt-4 leading-relaxed">{$i18n.t('settings.about.copyright')}<br />{$i18n.t('settings.about.createdBy')}</div>
+<div class="text-[10px] opacity-15 mt-4 leading-relaxed">
+  {$i18n.t('settings.about.copyright')}<br />{$i18n.t('settings.about.createdBy')}
+</div>
 
 <!-- Easter Egg: Matrix Rain Overlay -->
 {#if easterEggActive}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div class="matrix-overlay" onclick={dismissEasterEgg}>
-
     {#if showTypewriter}
       <div class="matrix-typewriter">
         <span>{typewriterText}</span><span class="cursor">▌</span>
@@ -422,7 +467,7 @@
 
     {#if showReveal}
       <div class="matrix-reveal">
-        <img src={logoImage} alt="Open WebUI" class="matrix-logo-img" />
+        <img src={logoImage} alt={APP_PROFILE.brand.name} class="matrix-logo-img" />
       </div>
     {/if}
   </div>
@@ -437,9 +482,6 @@
     cursor: pointer;
     animation: matrixFadeIn 1.5s ease-out;
   }
-
-
-
 
   .matrix-typewriter {
     position: absolute;
@@ -472,14 +514,21 @@
     width: 100px;
     height: 100px;
     object-fit: contain;
-    filter: drop-shadow(0 0 20px rgba(57, 200, 20, 0.3)) drop-shadow(0 0 40px rgba(57, 200, 20, 0.15))
-           brightness(0.8) sepia(1) saturate(3) hue-rotate(70deg);
-    animation: ghostPulse 4s ease-in-out infinite, glitch 8s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px rgba(57, 200, 20, 0.3))
+      drop-shadow(0 0 40px rgba(57, 200, 20, 0.15)) brightness(0.8) sepia(1) saturate(3)
+      hue-rotate(70deg);
+    animation:
+      ghostPulse 4s ease-in-out infinite,
+      glitch 8s ease-in-out infinite;
   }
 
   @keyframes matrixFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   @keyframes ghostReveal {
@@ -500,20 +549,25 @@
   }
 
   @keyframes ghostPulse {
-    0%, 100% {
-      filter: drop-shadow(0 0 20px rgba(57, 200, 20, 0.3)) drop-shadow(0 0 40px rgba(57, 200, 20, 0.15))
-             brightness(0.8) sepia(1) saturate(3) hue-rotate(70deg);
+    0%,
+    100% {
+      filter: drop-shadow(0 0 20px rgba(57, 200, 20, 0.3))
+        drop-shadow(0 0 40px rgba(57, 200, 20, 0.15)) brightness(0.8) sepia(1) saturate(3)
+        hue-rotate(70deg);
       opacity: 0.8;
     }
     50% {
-      filter: drop-shadow(0 0 30px rgba(57, 200, 20, 0.5)) drop-shadow(0 0 60px rgba(57, 200, 20, 0.25))
-             brightness(0.9) sepia(1) saturate(3) hue-rotate(70deg);
+      filter: drop-shadow(0 0 30px rgba(57, 200, 20, 0.5))
+        drop-shadow(0 0 60px rgba(57, 200, 20, 0.25)) brightness(0.9) sepia(1) saturate(3)
+        hue-rotate(70deg);
       opacity: 1;
     }
   }
 
   @keyframes glitch {
-    0%, 94%, 100% {
+    0%,
+    94%,
+    100% {
       transform: translate(0);
     }
     95% {
@@ -528,13 +582,21 @@
   }
 
   @keyframes blink {
-    0%, 100% { opacity: 0.8; }
-    50% { opacity: 0; }
+    0%,
+    100% {
+      opacity: 0.8;
+    }
+    50% {
+      opacity: 0;
+    }
   }
 
   @keyframes typewriterFade {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
-
 </style>

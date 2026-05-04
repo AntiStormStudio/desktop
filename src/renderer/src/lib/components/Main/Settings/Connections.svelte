@@ -49,6 +49,8 @@
   {/each}
 
   {#if ($connections ?? []).length === 0}
-    <div class="py-6 text-[12px] opacity-20 text-center">{$i18n.t('settings.connections.noConnections')}</div>
+    <div class="py-6 text-[12px] opacity-20 text-center">
+      {$i18n.t('settings.connections.noConnections')}
+    </div>
   {/if}
 </div>

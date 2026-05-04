@@ -8,13 +8,7 @@ import * as tar from 'tar'
 import * as pty from 'node-pty'
 import log from 'electron-log'
 
-import {
-  getConfig,
-  setConfig,
-  getInstallDir,
-  portInUse,
-  downloadFileWithProgress
-} from './index'
+import { getConfig, setConfig, getInstallDir, portInUse, downloadFileWithProgress } from './index'
 
 import { getModelsDir } from './huggingface'
 import { ServiceLock, isProcessAlive } from './service-lock'
@@ -39,7 +33,8 @@ export const getLlamaCppInfo = () => {
     const cacheBase = path.join(getInstallDir(), 'llama.cpp')
     try {
       if (fs.existsSync(cacheBase)) {
-        const dirs = fs.readdirSync(cacheBase, { withFileTypes: true })
+        const dirs = fs
+          .readdirSync(cacheBase, { withFileTypes: true })
           .filter((d) => d.isDirectory())
         for (const d of dirs) {
           const found = findBinary(path.join(cacheBase, d.name))
@@ -207,9 +202,7 @@ const findBinary = (dir: string): string | null => {
 
 // ─── Setup (Download & Extract) ─────────────────────────
 
-export const setupLlamaCpp = async (
-  onStatus?: (status: string) => void
-): Promise<string> => {
+export const setupLlamaCpp = async (onStatus?: (status: string) => void): Promise<string> => {
   const config = await getConfig()
   const llamaConfig = config.llamaCpp ?? {}
   const version = llamaConfig.version || 'latest'
@@ -235,7 +228,8 @@ export const setupLlamaCpp = async (
   } else {
     // 'latest' — scan all cached version directories for a usable binary
     try {
-      const cachedVersions = fs.readdirSync(cacheBase, { withFileTypes: true })
+      const cachedVersions = fs
+        .readdirSync(cacheBase, { withFileTypes: true })
         .filter((d) => d.isDirectory())
         .map((d) => d.name)
 
@@ -279,8 +273,8 @@ export const setupLlamaCpp = async (
     }
     throw new Error(
       `Failed to fetch release info (no internet?) and no cached llama.cpp binary found. ` +
-      `Please connect to the internet for the initial llama.cpp installation. ` +
-      `Original error: ${error?.message ?? error}`
+        `Please connect to the internet for the initial llama.cpp installation. ` +
+        `Original error: ${error?.message ?? error}`
     )
   }
 
@@ -303,9 +297,7 @@ export const setupLlamaCpp = async (
   const asset = (releaseData.assets as ReleaseAsset[]).find((a) => a.name === pattern)
   if (!asset) {
     const available = (releaseData.assets as ReleaseAsset[]).map((a) => a.name).join(', ')
-    throw new Error(
-      `No matching asset found for pattern "${pattern}". Available: ${available}`
-    )
+    throw new Error(`No matching asset found for pattern "${pattern}". Available: ${available}`)
   }
 
   log.info(`Downloading asset: ${asset.name}`)
@@ -362,45 +354,58 @@ export const setupLlamaCpp = async (
   return resultBinary
 }
 
-export const checkLlamaCppUpdate = async (): Promise<{ currentVersion: string | null; latestVersion: string | null; updateAvailable: boolean }> => {
+export const checkLlamaCppUpdate = async (): Promise<{
+  currentVersion: string | null
+  latestVersion: string | null
+  updateAvailable: boolean
+}> => {
   const currentInfo = getLlamaCppInfo()
 
   try {
-    const response = await fetch('https://api.github.com/repos/ggml-org/llama.cpp/releases/latest', {
-      headers: { Accept: 'application/vnd.github.v3+json' },
-      signal: AbortSignal.timeout(5000)
-    })
-    
+    const response = await fetch(
+      'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest',
+      {
+        headers: { Accept: 'application/vnd.github.v3+json' },
+        signal: AbortSignal.timeout(5000)
+      }
+    )
+
     if (!response.ok) {
       throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`)
     }
-    
+
     const releaseData = await response.json()
     const latestVersion = releaseData.tag_name
     const currentVersion = currentInfo.version
-    
+
     if (!currentVersion) {
       return { currentVersion: null, latestVersion, updateAvailable: true }
     }
-    
-    return { 
-      currentVersion, 
-      latestVersion, 
-      updateAvailable: currentVersion !== latestVersion 
+
+    return {
+      currentVersion,
+      latestVersion,
+      updateAvailable: currentVersion !== latestVersion
     }
   } catch (error) {
     log.error('Failed to check for llama.cpp updates:', error)
-    return { 
-      currentVersion: currentInfo.version, 
-      latestVersion: null, 
-      updateAvailable: false 
+    return {
+      currentVersion: currentInfo.version,
+      latestVersion: null,
+      updateAvailable: false
     }
   }
 }
 
 export const updateLlamaCpp = async (
   onStatus?: (status: string) => void
-): Promise<{ url?: string; status?: string; pid?: number; binaryPath?: string; version?: string | null }> => {
+): Promise<{
+  url?: string
+  status?: string
+  pid?: number
+  binaryPath?: string
+  version?: string | null
+}> => {
   // 1. Verify network is available BEFORE destructive operations —
   //    don't delete the old binary if we can't download a replacement.
   onStatus?.('Checking for updates…')
@@ -421,13 +426,13 @@ export const updateLlamaCpp = async (
   } catch (error) {
     throw new Error(
       `Cannot update llama.cpp: unable to reach GitHub. ` +
-      `Please check your internet connection. (${error?.message ?? error})`
+        `Please check your internet connection. (${error?.message ?? error})`
     )
   }
 
   // 2. Stop if running
   await stopLlamaCpp()
-  
+
   // 3. Clear old cache directory (safe — we verified network above)
   const currentInfo = getLlamaCppInfo()
   if (currentInfo.version) {
@@ -441,15 +446,15 @@ export const updateLlamaCpp = async (
       }
     }
   }
-  
+
   // 4. Temporarily enforce 'latest' in config so it fetches the newest
   const config = await getConfig()
   await setConfig({ llamaCpp: { ...config.llamaCpp, version: 'latest' } })
-  
+
   // 5. Download new release
   onStatus?.('Downloading update…')
   await setupLlamaCpp(onStatus)
-  
+
   return getLlamaCppInfo()
 }
 
@@ -487,7 +492,15 @@ export const startLlamaCpp = async (
 
   const extraArgs = llamaConfig.extraArgs ?? []
   const modelsDir = getModelsDir()
-  const commandArgs = ['--host', host, '--port', availablePort.toString(), '--models-dir', modelsDir, ...extraArgs]
+  const commandArgs = [
+    '--host',
+    host,
+    '--port',
+    availablePort.toString(),
+    '--models-dir',
+    modelsDir,
+    ...extraArgs
+  ]
 
   log.info('Starting llama-server:', binary, commandArgs.join(' '))
 

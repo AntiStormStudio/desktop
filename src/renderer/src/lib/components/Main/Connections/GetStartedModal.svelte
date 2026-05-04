@@ -5,7 +5,11 @@
   import Switch from '../../common/Switch.svelte'
 
   interface Props {
-    onContinue: (options: { installOpenTerminal: boolean; installLlamaCpp: boolean; installDir: string }) => void
+    onContinue: (options: {
+      installOpenTerminal: boolean
+      installLlamaCpp: boolean
+      installDir: string
+    }) => void
     onCancel: () => void
   }
 
@@ -48,12 +52,24 @@
     <div
       class="relative flex h-36 items-center justify-center overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black dark:from-white dark:via-gray-100 dark:to-gray-200"
     >
-      <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
+      <div
+        class="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"
+      ></div>
       <div class="relative z-10 text-center">
         <div class="mb-2.5 flex justify-center">
           <div class="rounded-full bg-white/10 p-3 dark:bg-black/10">
-            <svg class="w-6 h-6 text-white dark:text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z" />
+            <svg
+              class="w-6 h-6 text-white dark:text-gray-900"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z"
+              />
             </svg>
           </div>
         </div>
@@ -70,26 +86,40 @@
     <div class="px-6 py-4 flex flex-col divide-y divide-gray-100/30 dark:divide-gray-800/15">
       <div class="py-3.5 flex items-center justify-between gap-4">
         <div>
-          <div class="text-[13px] font-medium text-gray-700 dark:text-gray-300">{$i18n.t('main.getStarted.openTerminal')}</div>
-          <div class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{$i18n.t('main.getStarted.openTerminalDesc')}</div>
+          <div class="text-[13px] font-medium text-gray-700 dark:text-gray-300">
+            {$i18n.t('main.getStarted.openTerminal')}
+          </div>
+          <div class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+            {$i18n.t('main.getStarted.openTerminalDesc')}
+          </div>
         </div>
         <Switch
           checked={installOpenTerminal}
-          onchange={(v) => { installOpenTerminal = v }}
+          onchange={(v) => {
+            installOpenTerminal = v
+          }}
         />
       </div>
 
       <div class="py-3.5 flex items-center justify-between gap-4">
         <div>
-          <div class="text-[13px] font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+          <div
+            class="text-[13px] font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5"
+          >
             {$i18n.t('main.getStarted.llamaCpp')}
-            <span class="text-[9px] opacity-30 uppercase tracking-wide">{$i18n.t('common.experimental')}</span>
+            <span class="text-[9px] opacity-30 uppercase tracking-wide"
+              >{$i18n.t('common.experimental')}</span
+            >
           </div>
-          <div class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{$i18n.t('main.getStarted.llamaCppDesc')}</div>
+          <div class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+            {$i18n.t('main.getStarted.llamaCppDesc')}
+          </div>
         </div>
         <Switch
           checked={installLlamaCpp}
-          onchange={(v) => { installLlamaCpp = v }}
+          onchange={(v) => {
+            installLlamaCpp = v
+          }}
         />
       </div>
     </div>
@@ -98,20 +128,31 @@
     <div class="px-6 pb-4">
       <button
         class="flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer"
-        onclick={() => { advancedOpen = !advancedOpen }}
+        onclick={() => {
+          advancedOpen = !advancedOpen
+        }}
       >
         <svg
-          class="w-2.5 h-2.5 text-gray-400 dark:text-gray-500 transition-transform duration-200 {advancedOpen ? 'rotate-90' : ''}"
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+          class="w-2.5 h-2.5 text-gray-400 dark:text-gray-500 transition-transform duration-200 {advancedOpen
+            ? 'rotate-90'
+            : ''}"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="2"
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
         </svg>
-        <span class="text-[11px] text-gray-400 dark:text-gray-500">{$i18n.t('common.advanced')}</span>
+        <span class="text-[11px] text-gray-400 dark:text-gray-500"
+          >{$i18n.t('common.advanced')}</span
+        >
       </button>
 
       {#if advancedOpen}
         <div class="mt-3">
-          <div class="text-[11px] text-gray-400 dark:text-gray-500 mb-1.5">{$i18n.t('setup.install.installLocation')}</div>
+          <div class="text-[11px] text-gray-400 dark:text-gray-500 mb-1.5">
+            {$i18n.t('setup.install.installLocation')}
+          </div>
           <div class="flex items-center gap-2">
             <div
               class="flex-1 min-w-0 px-3 py-2 bg-gray-50 dark:bg-gray-900 text-[11px] text-gray-500 dark:text-gray-400 font-mono truncate rounded-xl"
@@ -126,7 +167,9 @@
               {$i18n.t('setup.install.changeLocation')}
             </button>
           </div>
-          <div class="text-[10px] text-gray-300 dark:text-gray-600 mt-1">{$i18n.t('setup.install.installLocationDesc')}</div>
+          <div class="text-[10px] text-gray-300 dark:text-gray-600 mt-1">
+            {$i18n.t('setup.install.installLocationDesc')}
+          </div>
         </div>
       {/if}
     </div>
@@ -148,4 +191,3 @@
     </div>
   </div>
 </div>
-

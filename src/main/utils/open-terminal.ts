@@ -54,7 +54,7 @@ export const startOpenTerminal = async (
     } catch (err) {
       throw new Error(
         `Open Terminal is not installed and auto-install failed. ` +
-        `Please connect to the internet and try again. (${err?.message ?? err})`
+          `Please connect to the internet and try again. (${err?.message ?? err})`
       )
     }
   }
@@ -86,11 +86,19 @@ export const startOpenTerminal = async (
   const cwd = config.openTerminal?.cwd || require('os').homedir()
 
   const commandArgs = [
-    '-m', 'uv', 'run', 'open-terminal', 'run',
-    '--host', host,
-    '--port', availablePort.toString(),
-    '--api-key', generatedKey,
-    '--cwd', cwd
+    '-m',
+    'uv',
+    'run',
+    'open-terminal',
+    'run',
+    '--host',
+    host,
+    '--port',
+    availablePort.toString(),
+    '--api-key',
+    generatedKey,
+    '--cwd',
+    cwd
   ]
 
   log.info('Starting Open Terminal...', pythonPath, commandArgs.join(' '))
@@ -109,9 +117,7 @@ export const startOpenTerminal = async (
       }
     })
   } catch (error) {
-    throw new Error(
-      `Failed to spawn Open Terminal: ${error?.message ?? error}`
-    )
+    throw new Error(`Failed to spawn Open Terminal: ${error?.message ?? error}`)
   }
 
   const spawnedPid = spawned.pid

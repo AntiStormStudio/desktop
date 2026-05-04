@@ -1,4 +1,3 @@
-provider: github
-owner: open-webui
-repo: desktop
-updaterCacheDirName: desktop-updater
+provider: generic
+url: "https://chat.spark-ai.top/api/v1/configs/apps/updates/desktop/"
+updaterCacheDirName: spark-atlas-updater

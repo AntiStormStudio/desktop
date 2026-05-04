@@ -2,9 +2,7 @@ import { ipcRenderer, contextBridge } from 'electron'
 
 const api = {
   // Main process tells us to start/stop recording
-  onRecordingState: (
-    callback: (data: { recording: boolean }) => void
-  ): void => {
+  onRecordingState: (callback: (data: { recording: boolean }) => void): void => {
     ipcRenderer.on('voiceInput:state', (_event, data) => {
       callback(data)
     })

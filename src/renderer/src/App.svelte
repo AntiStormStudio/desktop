@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte'
   import { fade } from 'svelte/transition'
   import { appInfo, config, connections, serverInfo, appState } from './lib/stores'
+  import { changeLanguage } from './lib/i18n'
 
   import Main from './lib/components/Main.svelte'
 
@@ -22,11 +23,13 @@
     if (!api) return
 
     appInfo.set(await api.getAppInfo())
-    config.set(await api.getConfig())
+    const cfg = await api.getConfig()
+    config.set(cfg)
     connections.set(await api.getConnections())
+    if (cfg?.language) changeLanguage(cfg.language)
 
     // Apply saved theme
-    const savedTheme = (await api.getConfig())?.theme ?? 'system'
+    const savedTheme = cfg?.theme ?? 'system'
     applyResolvedTheme(savedTheme)
 
     // Listen for OS theme changes so "system" mode reacts in real-time

@@ -12,6 +12,7 @@ import { app, shell, Notification, net as electronNet } from 'electron'
 import { execFileSync, exec, spawn, execSync, execFile } from 'child_process'
 
 import log from 'electron-log'
+import { APP_PROFILE } from '../../shared/profile'
 log.transports.file.resolvePathFn = () => getLogFilePath('main')
 
 const serverLogger = log.create({ logId: 'server' })
@@ -262,7 +263,10 @@ const checkInternet = async () => {
   }
 }
 
-export const installPython = async (installationDir?: string, onStatus?: (status: string) => void): Promise<boolean> => {
+export const installPython = async (
+  installationDir?: string,
+  onStatus?: (status: string) => void
+): Promise<boolean> => {
   const pythonDownloadPath = getPythonDownloadPath()
   if (!fs.existsSync(pythonDownloadPath)) {
     if (!(await checkInternet())) {
@@ -296,10 +300,10 @@ export const installPython = async (installationDir?: string, onStatus?: (status
   } catch (error) {
     log.error(error)
     // Remove possibly-corrupted download so next retry re-downloads
-    try { fs.unlinkSync(pythonDownloadPath) } catch {}
-    throw new Error(
-      'Failed to extract Python. The download may be corrupted. Please try again.'
-    )
+    try {
+      fs.unlinkSync(pythonDownloadPath)
+    } catch {}
+    throw new Error('Failed to extract Python. The download may be corrupted. Please try again.')
   }
 
   if (!isPythonInstalled(installationDir)) {
@@ -435,10 +439,16 @@ export const uninstallPython = (installationDir?: string): boolean => {
 
 // ─── Package Management ─────────────────────────────────
 
-export const installPackage = (packageName: string, version?: string, onStatus?: (status: string) => void): Promise<boolean> => {
+export const installPackage = (
+  packageName: string,
+  version?: string,
+  onStatus?: (status: string) => void
+): Promise<boolean> => {
   return new Promise((resolve, reject) => {
     if (!isPythonInstalled()) {
-      return reject(new Error('Python is not installed. Please reinstall the app or run setup again.'))
+      return reject(
+        new Error('Python is not installed. Please reinstall the app or run setup again.')
+      )
     }
     const pythonPath = getPythonPath()
     const commandProcess = execFile(
@@ -477,9 +487,12 @@ export const installPackage = (packageName: string, version?: string, onStatus?:
       if (code === 0) {
         resolve(true)
       } else {
-        reject(new Error(
-          lastLine || `Package installation failed (exit code ${code}). Please check your internet connection and try again.`
-        ))
+        reject(
+          new Error(
+            lastLine ||
+              `Package installation failed (exit code ${code}). Please check your internet connection and try again.`
+          )
+        )
       }
     })
     commandProcess.on('error', (error) => {
@@ -489,10 +502,7 @@ export const installPackage = (packageName: string, version?: string, onStatus?:
   })
 }
 
-export const installPackages = async (
-  packages: string[],
-  version?: string
-): Promise<boolean> => {
+export const installPackages = async (packages: string[], version?: string): Promise<boolean> => {
   for (const pkg of packages) {
     const ok = await installPackage(pkg, version)
     if (!ok) return false
@@ -607,9 +617,7 @@ export const startServer = async (
       })
     })
   } catch (error) {
-    throw new Error(
-      `Failed to spawn PTY with ${pythonPath}: ${error?.message ?? error}`
-    )
+    throw new Error(`Failed to spawn PTY with ${pythonPath}: ${error?.message ?? error}`)
   }
 
   const pid = ptyProcess.pid
@@ -638,7 +646,6 @@ export const startServer = async (
 
   return { url, pid }
 }
-
 
 export async function stopAllServers(): Promise<void> {
   log.info('Stopping all servers...')
@@ -792,7 +799,10 @@ export const checkUrlAndOpen = async (url: string, callback: Function = async ()
 
 export const validateRemoteUrl = async (url: string): Promise<boolean> => {
   try {
-    const response = await electronNet.fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) })
+    const response = await electronNet.fetch(url, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(5000)
+    })
     return response.ok
   } catch {
     return false
@@ -884,17 +894,59 @@ const DEFAULT_CONFIG: AppConfig = {
   windowMaximized: false
 }
 
+const applyProfileDefaults = (config: AppConfig): AppConfig => {
+  const next: AppConfig = {
+    ...config,
+    connections: [...(config.connections ?? [])]
+  }
+
+  const profileRemoteUrl = APP_PROFILE.features.defaultRemoteOpenWebUI?.trim()
+  if (profileRemoteUrl) {
+    const normalizedUrl = profileRemoteUrl.startsWith('http')
+      ? profileRemoteUrl
+      : `https://${profileRemoteUrl}`
+    const defaultRemoteId = 'profile-default-remote'
+    const existingIdx = next.connections.findIndex((conn) => conn.id === defaultRemoteId)
+    const defaultRemote: Connection = {
+      id: defaultRemoteId,
+      name: APP_PROFILE.brand.serviceName,
+      type: 'remote',
+      url: normalizedUrl
+    }
+    if (existingIdx === -1) {
+      next.connections.unshift(defaultRemote)
+    } else {
+      next.connections[existingIdx] = {
+        ...next.connections[existingIdx],
+        ...defaultRemote
+      }
+    }
+    if (!next.defaultConnectionId) {
+      next.defaultConnectionId = defaultRemoteId
+    }
+  }
+
+  if (!APP_PROFILE.features.allowLocalOpenWebUIInstall && next.defaultConnectionId) {
+    const defaultConn = next.connections.find((conn) => conn.id === next.defaultConnectionId)
+    if (defaultConn?.type === 'local') {
+      next.defaultConnectionId = next.connections.find((conn) => conn.type === 'remote')?.id ?? null
+    }
+  }
+
+  return next
+}
+
 export const getConfig = async (): Promise<AppConfig> => {
   const configPath = path.join(getUserDataPath(), 'config.json')
   try {
     if (fs.existsSync(configPath)) {
       const data = await fs.promises.readFile(configPath, 'utf8')
-      return { ...DEFAULT_CONFIG, ...JSON.parse(data) }
+      return applyProfileDefaults({ ...DEFAULT_CONFIG, ...JSON.parse(data) })
     }
-    return { ...DEFAULT_CONFIG }
+    return applyProfileDefaults({ ...DEFAULT_CONFIG })
   } catch (error) {
     log.error('Error reading config, using defaults:', error)
-    return { ...DEFAULT_CONFIG }
+    return applyProfileDefaults({ ...DEFAULT_CONFIG })
   }
 }
 
@@ -904,7 +956,9 @@ export const setConfig = async (config: Partial<AppConfig>): Promise<void> => {
   // Serialize writes so concurrent callers don't race on the tmp file
   const previous = configWriteLock
   let resolve: () => void
-  configWriteLock = new Promise<void>((r) => { resolve = r })
+  configWriteLock = new Promise<void>((r) => {
+    resolve = r
+  })
   await previous
 
   const configPath = path.join(getUserDataPath(), 'config.json')

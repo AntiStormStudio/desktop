@@ -20,7 +20,7 @@ export interface HfModel {
   repo: string
   filename: string
   filepath: string
-  size: number        // bytes
+  size: number // bytes
   downloadedAt: string // ISO date
 }
 
@@ -200,7 +200,9 @@ export const downloadModel = async (
   } catch (err) {
     writeStream.end()
     // Clean up partial download
-    try { fs.unlinkSync(tmpPath) } catch {}
+    try {
+      fs.unlinkSync(tmpPath)
+    } catch {}
     activeDownloads.delete(downloadKey(repo, filename))
     throw err
   } finally {
@@ -278,7 +280,7 @@ export const getModelInfo = (repo: string, filename: string): HfModel | null => 
 // ─── HF API Integration ────────────────────────────────
 
 export interface HfRepoResult {
-  id: string            // e.g. "ggml-org/gemma-3-1b-it-GGUF"
+  id: string // e.g. "ggml-org/gemma-3-1b-it-GGUF"
   author: string
   modelId: string
   downloads: number
@@ -289,17 +291,14 @@ export interface HfRepoResult {
 
 export interface HfFileInfo {
   filename: string
-  size: number          // bytes
+  size: number // bytes
   lfs?: { size: number }
 }
 
 /**
  * Search HF for GGUF model repos.
  */
-export const searchModels = async (
-  query: string,
-  token?: string
-): Promise<HfRepoResult[]> => {
+export const searchModels = async (query: string, token?: string): Promise<HfRepoResult[]> => {
   const params = new URLSearchParams({
     search: query,
     filter: 'gguf',
@@ -331,10 +330,7 @@ export const searchModels = async (
 /**
  * List GGUF files in a HF repo.
  */
-export const getRepoFiles = async (
-  repo: string,
-  token?: string
-): Promise<HfFileInfo[]> => {
+export const getRepoFiles = async (repo: string, token?: string): Promise<HfFileInfo[]> => {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
@@ -355,4 +351,3 @@ export const getRepoFiles = async (
     }))
     .sort((a: HfFileInfo, b: HfFileInfo) => a.size - b.size)
 }
-
