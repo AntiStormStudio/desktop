@@ -3,6 +3,7 @@
   import { connections, config } from '../../../stores'
   import i18n, { getLanguages, changeLanguage } from '../../../i18n'
   import Switch from '../../common/Switch.svelte'
+  import { APP_PROFILE } from '../../../profile'
 
   let launchAtLogin = $state(false)
   let runInBackground = $state(true)
@@ -398,25 +399,27 @@
     </div>
   </div>
 
-  <div class="py-4 flex items-center justify-between">
-    <div>
-      <div class="text-[13px] opacity-70">{$i18n.t('settings.general.defaultConnection')}</div>
-      <div class="text-[11px] opacity-25 mt-0.5">
-        {$i18n.t('settings.general.defaultConnectionDesc')}
+  {#if APP_PROFILE.features.allowLocalOpenWebUIInstall}
+    <div class="py-4 flex items-center justify-between">
+      <div>
+        <div class="text-[13px] opacity-70">{$i18n.t('settings.general.defaultConnection')}</div>
+        <div class="text-[11px] opacity-25 mt-0.5">
+          {$i18n.t('settings.general.defaultConnectionDesc')}
+        </div>
       </div>
+      <select
+        class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60"
+        onchange={(e) => setDefault((e.target as HTMLSelectElement).value)}
+      >
+        <option value="">{$i18n.t('common.none')}</option>
+        {#each $connections as conn}
+          <option value={conn.id} selected={$config?.defaultConnectionId === conn.id}
+            >{conn.name}</option
+          >
+        {/each}
+      </select>
     </div>
-    <select
-      class="bg-black/[0.04] dark:bg-white/[0.06] text-[12px] text-[#1d1d1f] dark:text-[#fafafa] px-3 py-1.5 border-none outline-none rounded-xl opacity-60"
-      onchange={(e) => setDefault((e.target as HTMLSelectElement).value)}
-    >
-      <option value="">{$i18n.t('common.none')}</option>
-      {#each $connections as conn}
-        <option value={conn.id} selected={$config?.defaultConnectionId === conn.id}
-          >{conn.name}</option
-        >
-      {/each}
-    </select>
-  </div>
+  {/if}
 
   <div class="py-4 flex items-center justify-between">
     <div>
@@ -748,7 +751,8 @@
   {/if}
 
   <!-- Advanced (collapsed by default) -->
-  <div class="py-4">
+  {#if APP_PROFILE.features.allowLocalOpenWebUIInstall}
+    <div class="py-4">
     <button
       class="flex items-center gap-1.5 bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] p-0 cursor-pointer"
       onclick={() => {
@@ -921,5 +925,6 @@
         </div>
       </div>
     {/if}
-  </div>
+    </div>
+  {/if}
 </div>

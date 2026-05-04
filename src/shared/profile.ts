@@ -2,11 +2,14 @@
 export const APP_PROFILE = {
   "brand": {
     "name": "Spark Atlas",
-    "desktopName": "Spark Atlas Desktop",
+    "desktopName": "Spark Atlas",
     "serviceName": "Open WebUI",
-    "description": "Spark Atlas Desktop",
+    "description": "Spark Atlas",
     "author": "Spark Atlas",
     "homepage": "https://openwebui.com",
+    "officialWebsiteUrl": "https://spark-ai.top",
+    "copyrightText": "Copyright (c) 2026 Spark Atlas. All rights reserved.",
+    "creatorText": "Created by Spark Atlas",
     "packageName": "spark-atlas-desktop",
     "appId": "com.sparkatlas.desktop",
     "executableName": "spark-atlas",
@@ -16,8 +19,9 @@ export const APP_PROFILE = {
   },
   "features": {
     "allowLocalOpenWebUIInstall": false,
-    "allowUserRemoteOpenWebUI": true,
+    "allowUserRemoteOpenWebUI": false,
     "defaultRemoteOpenWebUI": "https://chat.spark-ai.top",
+    "defaultRemoteOpenWebUIName": "Spark Atlas",
     "defaultLandingMode": "remote",
     "allowRemotePasskeys": true,
     "allowRemoteDesktopBridge": true,
@@ -66,6 +70,7 @@ export const APP_PROFILE = {
     "iconPng": "light.png",
     "iconIco": "light.ico",
     "trayPng": "carved_light.png",
+    "macIconScale": 0.82,
     "splashLightPng": "carved_light.png",
     "splashDarkPng": "carved_dark.png"
   }

@@ -1,15 +1,15 @@
 appId: "com.sparkatlas.desktop"
-productName: "Spark Atlas Desktop"
+productName: "Spark Atlas"
 protocols:
-  - name: "Spark Atlas Desktop"
+  - name: "Spark Atlas"
     schemes:
       - spal
 directories:
   buildResources: build
 extraMetadata:
   name: "spark-atlas-desktop"
-  productName: "Spark Atlas Desktop"
-  description: "Spark Atlas Desktop"
+  productName: "Spark Atlas"
+  description: "Spark Atlas"
   author: "Spark Atlas"
   homepage: "https://openwebui.com"
 files:
@@ -41,6 +41,7 @@ mac:
         - x64
         - arm64
   artifactName: "spark-atlas-desktop-${arch}-mac.${ext}"
+  hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:

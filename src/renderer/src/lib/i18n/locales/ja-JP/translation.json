@@ -99,7 +99,6 @@
   "sidebar.openTerminal": "Open Terminal",
   "sidebar.llamaCpp": "llama.cpp",
   "sidebar.settings": "設定",
-  "sidebar.github": "GitHub",
   "sidebar.tooltip.closeSidebar": "サイドバーを閉じる",
   "sidebar.tooltip.openSidebar": "サイドバーを開く",
   "sidebar.tooltip.showLogs": "ログを表示",
@@ -256,7 +255,6 @@
   "settings.about.restartToUpdate": "再起動してアップデート",
   "settings.about.whatsNew": "新機能",
   "settings.about.noChangelog": "変更履歴はまだありません。",
-  "settings.about.viewOnGithub": "GitHub で表示 →",
   "settings.about.copyright": "Copyright (c) 2026 {{brandName}}. All rights reserved.",
   "settings.about.createdBy": "Created by Timothy J. Baek",
   "setup.couldNotLoadPage": "このページを読み込めませんでした",
@@ -287,5 +285,7 @@
   "settings.general.toggleCallShortcut": "通話ショートカットを切り替え",
   "settings.general.callShortcut": "通話ショートカット",
   "settings.general.callShortcutDesc": "どこからでも通話を開始",
-  "main.install.waitingForServer": "サーバーを待機しています…"
+  "main.install.waitingForServer": "サーバーを待機しています…",
+  "sidebar.officialWebsite": "公式サイト",
+  "settings.about.visitOfficialWebsite": "公式サイトを開く ->"
 }

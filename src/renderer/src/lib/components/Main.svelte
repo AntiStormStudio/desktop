@@ -108,7 +108,7 @@
         {/if}
       </div>
       <div class="flex-1 flex items-center justify-center">
-        <span class="text-[11px] opacity-80">{activeConnectionName || $i18n.t('app.name')}</span>
+        <span class="text-[11px] opacity-80">{$i18n.t('app.name')}</span>
       </div>
       <div class="pr-3 flex items-center shrink-0 translate-y-[0.5px]">
         {#if activeConnectionName}

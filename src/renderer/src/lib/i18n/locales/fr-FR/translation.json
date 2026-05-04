@@ -99,7 +99,6 @@
   "sidebar.openTerminal": "Open Terminal",
   "sidebar.llamaCpp": "llama.cpp",
   "sidebar.settings": "Paramètres",
-  "sidebar.github": "GitHub",
   "sidebar.tooltip.closeSidebar": "Fermer la barre latérale",
   "sidebar.tooltip.openSidebar": "Ouvrir la barre latérale",
   "sidebar.tooltip.showLogs": "Afficher les journaux",
@@ -256,7 +255,6 @@
   "settings.about.restartToUpdate": "Redémarrer pour mettre à jour",
   "settings.about.whatsNew": "Nouveautés",
   "settings.about.noChangelog": "Aucune entrée de journal des modifications.",
-  "settings.about.viewOnGithub": "Voir sur GitHub →",
   "settings.about.copyright": "Copyright (c) 2026 {{brandName}}. All rights reserved.",
   "settings.about.createdBy": "Created by Timothy J. Baek",
   "setup.couldNotLoadPage": "Impossible de charger cette page",
@@ -287,5 +285,7 @@
   "settings.general.toggleCallShortcut": "Activer/désactiver le raccourci d’appel",
   "settings.general.callShortcut": "Raccourci d’appel",
   "settings.general.callShortcutDesc": "Lancer un appel depuis n’importe où",
-  "main.install.waitingForServer": "En attente du serveur…"
+  "main.install.waitingForServer": "En attente du serveur…",
+  "sidebar.officialWebsite": "Site officiel",
+  "settings.about.visitOfficialWebsite": "Visiter le site officiel ->"
 }

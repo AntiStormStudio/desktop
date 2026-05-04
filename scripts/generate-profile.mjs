@@ -36,6 +36,10 @@ const envBool = (name, fallback) => {
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase())
 }
 const envString = (name, fallback) => process.env[name] ?? fallback
+const envNumber = (name, fallback) => {
+  const value = Number(process.env[name])
+  return Number.isFinite(value) ? value : fallback
+}
 const envList = (name, fallback) => {
   const value = process.env[name]
   if (value == null) return fallback
@@ -54,6 +58,18 @@ profile.brand.serviceName = envString('DESKTOP_SERVICE_NAME', profile.brand.serv
 profile.brand.description = envString('DESKTOP_DESCRIPTION', profile.brand.description)
 profile.brand.author = envString('DESKTOP_AUTHOR', profile.brand.author)
 profile.brand.homepage = envString('DESKTOP_HOMEPAGE', profile.brand.homepage)
+profile.brand.officialWebsiteUrl = envString(
+  'DESKTOP_OFFICIAL_WEBSITE_URL',
+  profile.brand.officialWebsiteUrl ?? profile.brand.homepage
+)
+profile.brand.copyrightText = envString(
+  'DESKTOP_COPYRIGHT_TEXT',
+  profile.brand.copyrightText ?? `Copyright (c) ${new Date().getFullYear()} ${profile.brand.name}. All rights reserved.`
+)
+profile.brand.creatorText = envString(
+  'DESKTOP_CREATOR_TEXT',
+  profile.brand.creatorText ?? `Created by ${profile.brand.author ?? profile.brand.name}`
+)
 profile.brand.packageName = envString('DESKTOP_PACKAGE_NAME', profile.brand.packageName)
 profile.brand.appId = envString('DESKTOP_APP_ID', profile.brand.appId)
 profile.brand.executableName = envString('DESKTOP_EXECUTABLE_NAME', profile.brand.executableName)
@@ -72,6 +88,10 @@ profile.features.allowUserRemoteOpenWebUI = envBool(
 profile.features.defaultRemoteOpenWebUI = envString(
   'DESKTOP_DEFAULT_REMOTE_OPENWEBUI',
   profile.features.defaultRemoteOpenWebUI
+)
+profile.features.defaultRemoteOpenWebUIName = envString(
+  'DESKTOP_DEFAULT_REMOTE_OPENWEBUI_NAME',
+  profile.features.defaultRemoteOpenWebUIName ?? profile.brand.name
 )
 profile.features.defaultLandingMode = envString(
   'DESKTOP_DEFAULT_LANDING_MODE',
@@ -128,6 +148,10 @@ profile.assets.trayPng = envString(
   'DESKTOP_TRAY_PNG',
   profile.assets.trayPng ?? profile.assets.iconPng
 )
+profile.assets.macIconScale = Math.min(
+  1,
+  Math.max(0.1, envNumber('DESKTOP_MAC_ICON_SCALE', profile.assets.macIconScale ?? 0.82))
+)
 profile.assets.splashLightPng = envString(
   'DESKTOP_SPLASH_LIGHT_PNG',
   profile.assets.splashLightPng ?? profile.assets.iconPng
@@ -158,6 +182,40 @@ const commandExists = (command) => {
   }
 }
 
+const makePaddedMacIcon = (source, target) => {
+  if (!fs.existsSync(source)) return false
+  if (!commandExists('ffmpeg')) return copyIfExists(source, target)
+
+  const canvasSize = 1024
+  const iconSize = Math.round(canvasSize * profile.assets.macIconScale)
+  const offset = Math.round((canvasSize - iconSize) / 2)
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  try {
+    execFileSync(
+      'ffmpeg',
+      [
+        '-y',
+        '-v',
+        'error',
+        '-i',
+        source,
+        '-vf',
+        `scale=${iconSize}:${iconSize}:flags=lanczos,pad=${canvasSize}:${canvasSize}:${offset}:${offset}:color=black@0`,
+        '-frames:v',
+        '1',
+        '-pix_fmt',
+        'rgba',
+        target
+      ],
+      { stdio: 'ignore' }
+    )
+    return true
+  } catch (error) {
+    console.warn(`Could not generate padded macOS icon, using source icon: ${error?.message ?? error}`)
+    return copyIfExists(source, target)
+  }
+}
+
 const syncBrandAssets = () => {
   if (!profile.assets.iconDir) return
   const iconDir = path.resolve(root, profile.assets.iconDir)
@@ -179,6 +237,9 @@ const syncBrandAssets = () => {
   copyIfExists(splashLight, path.join(root, 'src/renderer/src/lib/assets/images/splash.png'))
   copyIfExists(splashDark, path.join(root, 'src/renderer/src/lib/assets/images/splash-dark.png'))
 
+  const macIconPng = path.join(root, 'resources/dock-icon.png')
+  makePaddedMacIcon(png, macIconPng)
+
   if (fs.existsSync(png) && commandExists('iconutil') && commandExists('sips')) {
     const iconset = path.join(root, 'build/icon.iconset')
     fs.rmSync(iconset, { recursive: true, force: true })
@@ -198,7 +259,7 @@ const syncBrandAssets = () => {
     for (const [name, size] of sizes) {
       execFileSync(
         'sips',
-        ['-z', String(size), String(size), png, '--out', path.join(iconset, name)],
+        ['-z', String(size), String(size), macIconPng, '--out', path.join(iconset, name)],
         {
           stdio: 'ignore'
         }
@@ -275,7 +336,7 @@ write(
     `asarUnpack:\n  - resources/**\n  - node_modules/node-pty/**\n` +
     `win:\n  executableName: ${yamlValue(profile.brand.executableName)}\n` +
     `nsis:\n  artifactName: ${yamlValue(`${packageName}-\${arch}-setup.\${ext}`)}\n  shortcutName: \${productName}\n  uninstallDisplayName: \${productName}\n  createDesktopShortcut: always\n` +
-    `mac:\n  target:\n    - target: dmg\n    - target: zip\n      arch:\n        - x64\n        - arm64\n  artifactName: ${yamlValue(`${packageName}-\${arch}-mac.\${ext}`)}\n  entitlements: build/entitlements.mac.plist\n  entitlementsInherit: build/entitlements.mac.plist\n  extendInfo:\n    - NSCameraUsageDescription: Application requests access to the device's camera.\n    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.\n    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.\n    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.\n` +
+    `mac:\n  target:\n    - target: dmg\n    - target: zip\n      arch:\n        - x64\n        - arm64\n  artifactName: ${yamlValue(`${packageName}-\${arch}-mac.\${ext}`)}\n  hardenedRuntime: true\n  entitlements: build/entitlements.mac.plist\n  entitlementsInherit: build/entitlements.mac.plist\n  extendInfo:\n    - NSCameraUsageDescription: Application requests access to the device's camera.\n    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.\n    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.\n    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.\n` +
     `dmg:\n  background: build/dmg-background.png\n  artifactName: ${yamlValue(`${packageName}-\${arch}.\${ext}`)}\n  title: \${productName}\n  contents:\n    - x: 225\n      y: 250\n      type: file\n    - x: 400\n      y: 240\n      type: link\n      path: /Applications\n` +
     `linux:\n  target:\n    - AppImage\n    - snap\n    - deb\n    - flatpak\n  maintainer: ${yamlValue(profile.brand.linuxMaintainer)}\n  category: Utility\n` +
     `deb:\n  artifactName: ${yamlValue(`${packageName}_\${arch}.\${ext}`)}\n` +

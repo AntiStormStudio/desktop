@@ -99,7 +99,6 @@
   "sidebar.openTerminal": "Open Terminal",
   "sidebar.llamaCpp": "llama.cpp",
   "sidebar.settings": "設定",
-  "sidebar.github": "GitHub",
   "sidebar.tooltip.closeSidebar": "關閉側邊欄",
   "sidebar.tooltip.openSidebar": "開啟側邊欄",
   "sidebar.tooltip.showLogs": "顯示紀錄",
@@ -256,7 +255,6 @@
   "settings.about.restartToUpdate": "重新啟動以更新",
   "settings.about.whatsNew": "新功能",
   "settings.about.noChangelog": "暫無更新紀錄。",
-  "settings.about.viewOnGithub": "在 GitHub 上檢視 →",
   "settings.about.copyright": "版權所有 (c) 2026 {{brandName}}。保留所有權利。",
   "settings.about.createdBy": "由 Timothy J. Baek 建立",
   "setup.couldNotLoadPage": "無法載入此頁面",
@@ -287,5 +285,7 @@
   "settings.general.toggleCallShortcut": "切換通話快捷鍵",
   "settings.general.callShortcut": "通話快捷鍵",
   "settings.general.callShortcutDesc": "在任意位置發起通話",
-  "main.install.waitingForServer": "正在等待伺服器…"
+  "main.install.waitingForServer": "正在等待伺服器…",
+  "sidebar.officialWebsite": "官方網站",
+  "settings.about.visitOfficialWebsite": "造訪官方網站 →"
 }

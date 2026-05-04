@@ -909,7 +909,7 @@ const applyProfileDefaults = (config: AppConfig): AppConfig => {
     const existingIdx = next.connections.findIndex((conn) => conn.id === defaultRemoteId)
     const defaultRemote: Connection = {
       id: defaultRemoteId,
-      name: APP_PROFILE.brand.serviceName,
+      name: APP_PROFILE.features.defaultRemoteOpenWebUIName || APP_PROFILE.brand.name,
       type: 'remote',
       url: normalizedUrl
     }

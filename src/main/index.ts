@@ -89,6 +89,7 @@ import log from 'electron-log'
 log.transports.file.resolvePathFn = () => getLogFilePath('main')
 
 import icon from '../../resources/icon.png?asset'
+import dockIcon from '../../resources/dock-icon.png?asset'
 
 import { existsSync, writeFileSync, unlinkSync } from 'fs'
 
@@ -674,6 +675,7 @@ function createMainWindow(show = true): void {
     height: saved?.height ?? DEFAULT_WINDOW_HEIGHT,
     minWidth: MIN_WINDOW_WIDTH,
     minHeight: MIN_WINDOW_HEIGHT,
+    title: BRAND.name,
     icon: path.join(__dirname, 'assets/icon.png'),
     show: false,
     titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
@@ -700,7 +702,14 @@ function createMainWindow(show = true): void {
   }
 
   mainWindow = new BrowserWindow(windowOpts)
-  mainWindow.setIcon(icon)
+  if (process.platform !== 'darwin') {
+    mainWindow.setIcon(icon)
+  }
+  mainWindow.on('page-title-updated', (event) => {
+    event.preventDefault()
+    mainWindow?.setTitle(BRAND.name)
+  })
+  mainWindow.setTitle(BRAND.name)
 
   if (CONFIG?.windowMaximized) {
     mainWindow.maximize()
@@ -1386,7 +1395,7 @@ if (!gotTheLock) {
     applicationVersion: app.getVersion(),
     version: app.getVersion(),
     website: BRAND.homepage,
-    copyright: `© ${new Date().getFullYear()} ${BRAND.name}`
+    copyright: BRAND.copyrightText
   })
 
   app.whenReady().then(async () => {
@@ -1398,7 +1407,7 @@ if (!gotTheLock) {
 
     app.name = BRAND.desktopName
     if (process.platform === 'darwin' && app.dock) {
-      app.dock.setIcon(icon)
+      app.dock.setIcon(dockIcon)
     }
     electronApp.setAppUserModelId(BRAND.appId)
 

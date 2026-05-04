@@ -1,7 +1,7 @@
 appId: com.sparkatlas.desktop
-productName: Spark Atlas Desktop
+productName: Spark Atlas
 protocols:
-  - name: Spark Atlas Desktop
+  - name: Spark Atlas
     schemes:
       - spal
 directories:

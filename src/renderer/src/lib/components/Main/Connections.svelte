@@ -299,11 +299,9 @@
     }
   })
 
-  const openGithub = () => {
+  const openOfficialWebsite = () => {
     settingsOpen = false
-    window.electronAPI?.openInBrowser?.(
-      `https://github.com/${APP_PROFILE.brand.githubOwner}/${APP_PROFILE.brand.githubRepo}`
-    )
+    window.electronAPI?.openInBrowser?.(APP_PROFILE.brand.officialWebsiteUrl)
   }
 
   // ── Log panel PTY helpers ─────────────────────────────
@@ -582,7 +580,7 @@
           connections.set(await window.electronAPI.getConnections())
         }}
         onRemove={remove}
-        {openGithub}
+        openGithub={openOfficialWebsite}
       />
     {/if}
 

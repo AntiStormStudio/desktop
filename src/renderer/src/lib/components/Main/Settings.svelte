@@ -61,7 +61,12 @@
   ]
 
   const visibleTabs = $derived(
-    tabs.filter((tab) => tab.id !== 'openwebui' || APP_PROFILE.features.allowLocalOpenWebUIInstall)
+    tabs.filter((tab) => {
+      if (!APP_PROFILE.features.allowLocalOpenWebUIInstall) {
+        return !['openwebui', 'terminal', 'inference', 'models', 'connections'].includes(tab.id)
+      }
+      return true
+    })
   )
 
   $effect(() => {

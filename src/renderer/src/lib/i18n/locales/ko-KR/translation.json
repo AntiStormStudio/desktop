@@ -99,7 +99,6 @@
   "sidebar.openTerminal": "Open Terminal",
   "sidebar.llamaCpp": "llama.cpp",
   "sidebar.settings": "설정",
-  "sidebar.github": "GitHub",
   "sidebar.tooltip.closeSidebar": "사이드바 닫기",
   "sidebar.tooltip.openSidebar": "사이드바 열기",
   "sidebar.tooltip.showLogs": "로그 보기",
@@ -256,7 +255,6 @@
   "settings.about.restartToUpdate": "재시작하여 업데이트",
   "settings.about.whatsNew": "새로운 기능",
   "settings.about.noChangelog": "아직 변경 기록이 없습니다.",
-  "settings.about.viewOnGithub": "GitHub에서 보기 →",
   "settings.about.copyright": "Copyright (c) 2026 {{brandName}}. All rights reserved.",
   "settings.about.createdBy": "Created by Timothy J. Baek",
   "setup.couldNotLoadPage": "이 페이지를 불러올 수 없습니다",
@@ -287,5 +285,7 @@
   "settings.general.toggleCallShortcut": "통화 단축키 전환",
   "settings.general.callShortcut": "통화 단축키",
   "settings.general.callShortcutDesc": "어디서나 통화 시작",
-  "main.install.waitingForServer": "서버를 기다리는 중…"
+  "main.install.waitingForServer": "서버를 기다리는 중…",
+  "sidebar.officialWebsite": "공식 웹사이트",
+  "settings.about.visitOfficialWebsite": "공식 웹사이트 방문 ->"
 }

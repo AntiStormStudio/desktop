@@ -192,10 +192,8 @@
     )
   }
 
-  const openGithub = () => {
-    window.electronAPI?.openInBrowser?.(
-      `https://github.com/${APP_PROFILE.brand.githubOwner}/${APP_PROFILE.brand.githubRepo}`
-    )
+  const openOfficialWebsite = () => {
+    window.electronAPI?.openInBrowser?.(APP_PROFILE.brand.officialWebsiteUrl)
   }
 
   const handleCheck = async () => {
@@ -443,15 +441,15 @@
   <div class="py-4">
     <button
       class="text-[12px] opacity-40 hover:opacity-70 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa]"
-      onclick={openGithub}
+      onclick={openOfficialWebsite}
     >
-      {$i18n.t('settings.about.viewOnGithub')}
+      {$i18n.t('settings.about.visitOfficialWebsite')}
     </button>
   </div>
 </div>
 
 <div class="text-[10px] opacity-15 mt-4 leading-relaxed">
-  {$i18n.t('settings.about.copyright')}<br />{$i18n.t('settings.about.createdBy')}
+  {APP_PROFILE.brand.copyrightText}<br />{APP_PROFILE.brand.creatorText}
 </div>
 
 <!-- Easter Egg: Matrix Rain Overlay -->

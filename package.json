@@ -2,7 +2,7 @@
   "name": "spark-atlas-desktop",
   "version": "0.0.17",
   "license": "AGPL-3.0",
-  "description": "Spark Atlas Desktop",
+  "description": "Spark Atlas",
   "main": "./out/main/index.js",
   "author": "Spark Atlas",
   "homepage": "https://openwebui.com",

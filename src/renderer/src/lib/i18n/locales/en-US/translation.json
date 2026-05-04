@@ -105,7 +105,6 @@
   "sidebar.openTerminal": "Open Terminal",
   "sidebar.llamaCpp": "llama.cpp",
   "sidebar.settings": "Settings",
-  "sidebar.github": "GitHub",
   "sidebar.tooltip.closeSidebar": "Close sidebar",
   "sidebar.tooltip.openSidebar": "Open sidebar",
   "sidebar.tooltip.showLogs": "Show logs",
@@ -267,7 +266,6 @@
   "settings.about.restartToUpdate": "Restart to Update",
   "settings.about.whatsNew": "What's New",
   "settings.about.noChangelog": "No changelog entries yet.",
-  "settings.about.viewOnGithub": "View on GitHub →",
   "settings.about.copyright": "Copyright (c) 2026 {{brandName}}. All rights reserved.",
   "settings.about.createdBy": "Created by Timothy J. Baek",
   "setup.install.localInstallDisabled": "Local installation is disabled in this build.",
@@ -287,5 +285,7 @@
   "settings.general.toggleCallShortcut": "Toggle call shortcut",
   "settings.general.callShortcut": "Call Shortcut",
   "settings.general.callShortcutDesc": "Start a call from anywhere",
-  "main.install.waitingForServer": "Waiting for server…"
+  "main.install.waitingForServer": "Waiting for server…",
+  "sidebar.officialWebsite": "Official Website",
+  "settings.about.visitOfficialWebsite": "Visit official website ->"
 }
