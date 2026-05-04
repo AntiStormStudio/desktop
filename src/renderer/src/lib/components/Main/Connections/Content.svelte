@@ -353,6 +353,10 @@
             // Handle auth token relay from webview
             if (requestData.type === 'token:update' && requestData.token) {
               window.electronAPI.setAuthToken?.(requestData.token)
+              window.electronAPI.notification?.(
+                $i18n.t('app.name'),
+                $i18n.t('auth.desktopSignedIn')
+              )
               if (requestData._requestId) {
                 wv.send('desktop:response', {
                   _responseId: requestData._requestId,

@@ -165,6 +165,22 @@
     }
   }
 
+  const navigateTab = (tabId: string, nextUrl: string) => {
+    updateTab(tabId, { initialUrl: nextUrl, url: nextUrl })
+    requestAnimationFrame(() => {
+      const wv = document.querySelector(`webview[data-tab-id="${tabId}"]`) as any
+      if (!wv || typeof wv.loadURL !== 'function') return
+
+      try {
+        if (wv.getURL?.() !== nextUrl) {
+          wv.loadURL(nextUrl)
+        }
+      } catch (error) {
+        console.warn('Failed to navigate webview:', error)
+      }
+    })
+  }
+
   // Open Terminal state
   let openTerminalStatus = $state<string | null>(null)
   let openTerminalInfo = $state<{ url?: string; apiKey?: string; status?: string } | null>(null)
@@ -544,6 +560,7 @@
         const tab = browserTabs.find((item) => item.connectionId === connId)
         if (tab) {
           selectTab(tab.id)
+          navigateTab(tab.id, incomingUrl)
         } else {
           createTab(connId, incomingUrl)
         }
