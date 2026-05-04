@@ -68,6 +68,11 @@
     })
     sendTabCommand('spark-tabs:close', { tabId: tab.id })
   }
+
+  const refreshTab = (tabId: string) => {
+    const wv = document.querySelector(`webview[data-tab-id="${tabId}"]`) as any
+    wv?.reload?.()
+  }
 </script>
 
 {#if visible}
@@ -202,6 +207,38 @@
                 <span
                   role="button"
                   tabindex="0"
+                  class="tab-action-button tab-refresh-button h-5 w-5 shrink-0 rounded flex items-center justify-center opacity-45 hover:opacity-90 hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
+                  title={$i18n.t('common.refresh')}
+                  aria-label={$i18n.t('common.refresh')}
+                  onclick={(e) => {
+                    e.stopPropagation()
+                    refreshTab(tab.id)
+                  }}
+                  onkeydown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      refreshTab(tab.id)
+                    }
+                  }}
+                >
+                  <svg
+                    class="w-3 h-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7"
+                    />
+                  </svg>
+                </span>
+                <span
+                  role="button"
+                  tabindex="0"
                   class="tab-close-button h-5 w-5 shrink-0 rounded flex items-center justify-center opacity-45 hover:opacity-90 hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
                   title={$i18n.t('common.close')}
                   aria-label={$i18n.t('common.close')}
@@ -271,29 +308,6 @@
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 d="M3.75 5.25A1.5 1.5 0 015.25 3.75h13.5a1.5 1.5 0 011.5 1.5v13.5a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5V5.25zM12 3.75v16.5"
-              />
-            </svg>
-          </button>
-          <button
-            class="opacity-40 hover:opacity-80 transition bg-transparent border-none text-[#1d1d1f] dark:text-[#fafafa] no-drag cursor-pointer h-7 w-7 flex items-center justify-center rounded-md hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
-            onclick={() => {
-              const wv = getActiveWebview()
-              if (wv?.reload) wv.reload()
-            }}
-            aria-label={$i18n.t('common.refresh')}
-            use:tooltip={$i18n.t('common.refresh')}
-          >
-            <svg
-              class="w-[13px] h-[13px]"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M20.015 4.356v4.992m0 0h-4.992m4.993 0l-3.181-3.183a8.25 8.25 0 00-13.803 3.7"
               />
             </svg>
           </button>

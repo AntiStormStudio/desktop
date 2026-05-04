@@ -167,11 +167,11 @@ html.dark.glass-enabled .active-tab {
   font-weight: 500;
 }
 
-.browser-tab:not([data-active='true']) .tab-close-button {
+.browser-tab:not([data-active='true']) .tab-action-button {
   opacity: 0;
 }
 
-.browser-tab:not([data-active='true']):hover .tab-close-button {
+.browser-tab:not([data-active='true']):hover .tab-action-button {
   opacity: 0.65;
 }
 
@@ -231,6 +231,15 @@ html.dark.glass-enabled .active-tab {
   backdrop-filter: blur(14px) saturate(145%);
   -webkit-backdrop-filter: blur(14px) saturate(145%);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.split-surface[data-resizing='true'] webview {
+  pointer-events: none;
+}
+
+.split-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .split-resize-handle::before,

@@ -705,7 +705,7 @@ function createMainWindow(show = true): void {
     trafficLightPosition: { x: 10, y: 10 },
     autoHideMenuBar: true,
     backgroundColor: glassEnabled ? '#00000000' : '#f5f5f7',
-    transparent: glassEnabled,
+    transparent: process.platform === 'darwin' && glassEnabled,
     ...(process.platform === 'darwin' && glassEnabled
       ? { vibrancy: 'under-window' as const, visualEffectState: 'active' as const }
       : {}),
@@ -714,7 +714,6 @@ function createMainWindow(show = true): void {
       : {}),
     ...(process.platform === 'win32' ? { frame: true } : {}),
     ...(process.platform === 'linux' ? { icon } : {}),
-    ...(process.platform !== 'darwin' ? { titleBarOverlay: true } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,

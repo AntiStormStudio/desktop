@@ -159,6 +159,16 @@
         : `grid-template-columns: ${splitColumn}% minmax(0, 1fr); grid-template-rows: ${splitRow}% minmax(0, 1fr);`
   )
 
+  const applySplitGrid = (container: HTMLElement, column: number, row: number) => {
+    if (paneCount <= 1) {
+      container.style.gridTemplateColumns = '1fr'
+      container.style.gridTemplateRows = '1fr'
+      return
+    }
+    container.style.gridTemplateColumns = `${column}% minmax(0, 1fr)`
+    container.style.gridTemplateRows = paneCount === 2 ? '1fr' : `${row}% minmax(0, 1fr)`
+  }
+
   const getPaneIndex = (tabId: string) => paneTabs.findIndex((tab) => tab.id === tabId)
 
   const getPaneStyle = (tabId: string) => {
@@ -177,27 +187,63 @@
     event.preventDefault()
     resizingAxis = axis
     const container = document.querySelector('.split-surface') as HTMLElement | null
-    if (!container) return
+    if (!container) {
+      resizingAxis = null
+      return
+    }
+    const handle = event.currentTarget as HTMLElement
     const bounds = container.getBoundingClientRect()
+    let nextColumn = splitColumn
+    let nextRow = splitRow
+    let frame = 0
+
+    container.dataset.resizing = 'true'
+    document.documentElement.classList.add('split-resizing')
+
+    const flush = () => {
+      frame = 0
+      applySplitGrid(container, nextColumn, nextRow)
+      if (axis === 'column') {
+        handle.style.left = `${nextColumn}%`
+      } else {
+        handle.style.top = `${nextRow}%`
+      }
+    }
+
+    const scheduleFlush = () => {
+      if (!frame) frame = requestAnimationFrame(flush)
+    }
 
     const onMove = (moveEvent: MouseEvent) => {
       if (axis === 'column') {
         const ratio = ((moveEvent.clientX - bounds.left) / bounds.width) * 100
-        splitColumn = Math.max(22, Math.min(78, ratio))
+        nextColumn = Math.max(22, Math.min(78, ratio))
       } else {
         const ratio = ((moveEvent.clientY - bounds.top) / bounds.height) * 100
-        splitRow = Math.max(22, Math.min(78, ratio))
+        nextRow = Math.max(22, Math.min(78, ratio))
       }
+      scheduleFlush()
     }
 
     const onUp = () => {
+      if (frame) {
+        cancelAnimationFrame(frame)
+        frame = 0
+      }
+      applySplitGrid(container, nextColumn, nextRow)
+      splitColumn = nextColumn
+      splitRow = nextRow
       resizingAxis = null
+      delete container.dataset.resizing
+      document.documentElement.classList.remove('split-resizing')
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('blur', onUp)
     }
 
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
+    window.addEventListener('blur', onUp)
   }
 
   const handleSplitDrop = (event: DragEvent) => {
