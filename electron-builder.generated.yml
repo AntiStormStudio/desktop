@@ -11,7 +11,7 @@ extraMetadata:
   productName: "Spark Atlas"
   description: "Spark Atlas"
   author: "Spark Atlas"
-  homepage: "https://openwebui.com"
+  homepage: "https://chat.spark-ai.top"
 files:
   - '!**/.vscode/*'
   - '!src/*'
@@ -67,7 +67,7 @@ linux:
     - snap
     - deb
     - flatpak
-  maintainer: "openwebui.com"
+  maintainer: "spark-ai.top"
   category: Utility
 deb:
   artifactName: "spark-atlas-desktop_${arch}.${ext}"
