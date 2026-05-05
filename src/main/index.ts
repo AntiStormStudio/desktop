@@ -1291,6 +1291,67 @@ const getDesktopLocalTerminalInfo = () => ({
   }
 })
 
+const getDesktopLocalTerminalState = async () => {
+  const currentConfig = CONFIG ?? (await getConfig())
+  return {
+    ...getDesktopLocalTerminalInfo(),
+    version: getPackageVersion('open-terminal'),
+    openTerminal: {
+      enabled: currentConfig?.openTerminal?.enabled === true,
+      port: currentConfig?.openTerminal?.port ?? 8000,
+      cwd: currentConfig?.openTerminal?.cwd ?? '',
+      version: currentConfig?.openTerminal?.version ?? ''
+    }
+  }
+}
+
+const publishDesktopLocalTerminalState = async () => {
+  const state = await getDesktopLocalTerminalState()
+  sendToRenderer('open-terminal:state', state)
+  return state
+}
+
+const updateOpenTerminalConfig = async (patch: Record<string, any> = {}) => {
+  const currentConfig = CONFIG ?? (await getConfig())
+  const openTerminal = {
+    ...(currentConfig?.openTerminal ?? {}),
+    ...patch
+  }
+  await setConfig({ openTerminal })
+  CONFIG = await getConfig()
+  const state = await publishDesktopLocalTerminalState()
+  if (state.canUse) {
+    notifyDesktopLocalTerminal('add', state)
+  } else {
+    notifyDesktopLocalTerminal('remove', getOpenTerminalInfo())
+  }
+  return state
+}
+
+const startDesktopLocalTerminal = async () => {
+  sendToRenderer('status:open-terminal', 'starting')
+  const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null)
+  sendToRenderer('status:open-terminal', 'started')
+  sendToRenderer('open-terminal:ready', result)
+  notifyDesktopLocalTerminal('add', result)
+  await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: true } })
+  CONFIG = await getConfig()
+  return publishDesktopLocalTerminalState()
+}
+
+const stopDesktopLocalTerminal = async (disable = true) => {
+  const info = getOpenTerminalInfo()
+  sendToRenderer('status:open-terminal', 'stopping')
+  await stopOpenTerminal()
+  sendToRenderer('status:open-terminal', 'stopped')
+  notifyDesktopLocalTerminal('remove', info)
+  if (disable) {
+    await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: false } })
+    CONFIG = await getConfig()
+  }
+  return publishDesktopLocalTerminalState()
+}
+
 const localInstallDisabledError = () =>
   new Error(`${APP_PROFILE.brand.serviceName} local installation is disabled in this build.`)
 
@@ -1790,32 +1851,70 @@ if (!gotTheLock) {
         }
         case 'terminal.local.info':
           return getDesktopLocalTerminalInfo()
+        case 'terminal.local.state':
+          return getDesktopLocalTerminalState()
         case 'terminal.local.ensure': {
           if (!isPackageInstalled('open-terminal') || CONFIG?.openTerminal?.enabled !== true) {
             throw new Error('Open Terminal is not enabled in the desktop app.')
           }
           let info = getOpenTerminalInfo()
           if (!info?.url || info?.status !== 'started') {
-            sendToRenderer('status:open-terminal', 'starting')
-            const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null)
-            sendToRenderer('status:open-terminal', 'started')
-            sendToRenderer('open-terminal:ready', result)
-            notifyDesktopLocalTerminal('add', result)
-            info = getOpenTerminalInfo()
-          } else {
-            notifyDesktopLocalTerminal('add', info)
+            return await startDesktopLocalTerminal()
           }
-          return getDesktopLocalTerminalInfo()
+          notifyDesktopLocalTerminal('add', info)
+          return getDesktopLocalTerminalState()
         }
-        case 'terminal.local.stop': {
-          const info = getOpenTerminalInfo()
-          await stopOpenTerminal()
-          sendToRenderer('status:open-terminal', 'stopped')
-          notifyDesktopLocalTerminal('remove', info)
-          await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: false } })
-          CONFIG = await getConfig()
-          return true
+        case 'terminal.local.start':
+          if (!isPackageInstalled('open-terminal')) {
+            throw new Error('Open Terminal is not installed.')
+          }
+          return await startDesktopLocalTerminal()
+        case 'terminal.local.stop':
+          return await stopDesktopLocalTerminal(true)
+        case 'terminal.local.restart':
+          if (!isPackageInstalled('open-terminal')) {
+            throw new Error('Open Terminal is not installed.')
+          }
+          await stopDesktopLocalTerminal(false)
+          return await startDesktopLocalTerminal()
+        case 'terminal.local.install': {
+          const force = Boolean(request.payload?.force)
+          sendToRenderer('status:open-terminal-install', 'Installing Python runtime…')
+          const res = await installOpenTerminal(
+            CONFIG?.openTerminal?.version || undefined,
+            (status: string) => {
+              sendToRenderer('status:open-terminal-install', status)
+            },
+            force
+          )
+          sendToRenderer('status:open-terminal-install', res ? 'Installed' : 'Failed')
+          return await publishDesktopLocalTerminalState()
         }
+        case 'terminal.local.update': {
+          const wasRunning = getOpenTerminalInfo()?.status === 'started'
+          if (wasRunning) {
+            await stopDesktopLocalTerminal(false)
+          }
+          sendToRenderer('status:open-terminal-install', 'Installing Python runtime…')
+          const res = await installOpenTerminal(
+            CONFIG?.openTerminal?.version || undefined,
+            (status: string) => {
+              sendToRenderer('status:open-terminal-install', status)
+            },
+            true
+          )
+          sendToRenderer('status:open-terminal-install', res ? 'Installed' : 'Failed')
+          if (wasRunning || CONFIG?.openTerminal?.enabled === true) {
+            return await startDesktopLocalTerminal()
+          }
+          return await publishDesktopLocalTerminalState()
+        }
+        case 'terminal.local.uninstall':
+          await stopDesktopLocalTerminal()
+          await uninstallPackage('open-terminal')
+          return await publishDesktopLocalTerminalState()
+        case 'terminal.local.configure':
+          return await updateOpenTerminalConfig(request.payload ?? {})
         default:
           throw new Error(`Unhandled desktop bridge capability: ${request.capability}`)
       }
@@ -1852,6 +1951,14 @@ if (!gotTheLock) {
     ipcMain.handle('set:config', async (_event, config) => {
       await setConfig(config)
       CONFIG = await getConfig()
+      if ('openTerminal' in config) {
+        const state = await publishDesktopLocalTerminalState()
+        if (state.canUse) {
+          notifyDesktopLocalTerminal('add', state)
+        } else {
+          notifyDesktopLocalTerminal('remove', getOpenTerminalInfo())
+        }
+      }
       if (mainWindow && !mainWindow.isDestroyed() && 'glassEffect' in config) {
         applyGlassEffect(mainWindow, CONFIG.glassEffect !== false)
       }
@@ -2362,6 +2469,7 @@ if (!gotTheLock) {
         // Save enabled state
         await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: true } })
         CONFIG = await getConfig()
+        await publishDesktopLocalTerminalState()
         return result
       } catch (error) {
         log.error('Failed to start Open Terminal:', error)
@@ -2384,6 +2492,7 @@ if (!gotTheLock) {
           Boolean(force)
         )
         sendToRenderer('status:open-terminal-install', res ? 'Installed' : 'Failed')
+        await publishDesktopLocalTerminalState()
         return res
       } catch (error) {
         log.error('Failed to install Open Terminal:', error)
@@ -2405,6 +2514,7 @@ if (!gotTheLock) {
         notifyDesktopLocalTerminal('remove', info)
         await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: false } })
         CONFIG = await getConfig()
+        await publishDesktopLocalTerminalState()
         return true
       } catch (error) {
         log.error('Failed to stop Open Terminal:', error)
@@ -2675,6 +2785,7 @@ if (!gotTheLock) {
         sendToRenderer('status:open-terminal', 'started')
         sendToRenderer('open-terminal:ready', result)
         notifyDesktopLocalTerminal('add', result)
+        await publishDesktopLocalTerminalState()
       } catch (error) {
         log.error('Auto-start Open Terminal failed:', error)
         sendToRenderer('status:open-terminal', 'failed')

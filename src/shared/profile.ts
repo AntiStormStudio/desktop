@@ -58,8 +58,15 @@ export const APP_PROFILE = {
       "resources.openPath",
       "resources.selectFile",
       "terminal.local.info",
+      "terminal.local.state",
       "terminal.local.ensure",
-      "terminal.local.stop"
+      "terminal.local.start",
+      "terminal.local.stop",
+      "terminal.local.restart",
+      "terminal.local.install",
+      "terminal.local.update",
+      "terminal.local.uninstall",
+      "terminal.local.configure"
     ]
   },
   "updates": {

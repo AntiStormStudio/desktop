@@ -82,7 +82,11 @@
     activeConnectionId = connectionId
     connectedUrl = url
     view = 'connected'
-    if (openTerminalInfo?.status === 'started' && openTerminalInfo?.url && openTerminalInfo?.apiKey) {
+    if (
+      openTerminalInfo?.status === 'started' &&
+      openTerminalInfo?.url &&
+      openTerminalInfo?.apiKey
+    ) {
       requestAnimationFrame(() => publishDesktopLocalTerminal(openTerminalInfo))
     }
     return tab
@@ -184,6 +188,9 @@
   // Open Terminal state
   let openTerminalStatus = $state<string | null>(null)
   let openTerminalInfo = $state<{ url?: string; apiKey?: string; status?: string } | null>(null)
+  let pendingWebviewEvents: Array<{ event: any; connId?: string }> = []
+  let pendingWebviewFlushTimer: ReturnType<typeof setTimeout> | null = null
+  let pendingWebviewFlushAttempts = 0
 
   // Llama Server state
   let llamaCppStatus = $state<string | null>(null)
@@ -477,7 +484,11 @@
   // Query events target a specific webview; everything else broadcasts.
   const sendToWebview = (event: any, connId?: string) => {
     const container = document.querySelector('.content-webview-container')
-    if (!container) return
+    if (!container) {
+      pendingWebviewEvents.push({ event, connId })
+      schedulePendingWebviewFlush()
+      return
+    }
 
     let webviews: any[] = []
     if (connId) {
@@ -488,6 +499,12 @@
       webviews = [active || first].filter(Boolean)
     } else {
       webviews = Array.from(container.querySelectorAll('webview'))
+    }
+
+    if (webviews.length === 0) {
+      pendingWebviewEvents.push({ event, connId })
+      schedulePendingWebviewFlush()
+      return
     }
 
     for (const wv of webviews) {
@@ -507,26 +524,56 @@
     }
   }
 
+  const flushPendingWebviewEvents = () => {
+    if (pendingWebviewEvents.length === 0) return
+    const pending = pendingWebviewEvents
+    pendingWebviewEvents = []
+
+    for (const item of pending) {
+      sendToWebview(item.event, item.connId)
+    }
+
+    if (pendingWebviewEvents.length === 0) {
+      pendingWebviewFlushAttempts = 0
+    } else {
+      schedulePendingWebviewFlush()
+    }
+  }
+
+  const schedulePendingWebviewFlush = () => {
+    if (pendingWebviewFlushTimer || pendingWebviewFlushAttempts >= 40) return
+    pendingWebviewFlushAttempts += 1
+    pendingWebviewFlushTimer = setTimeout(() => {
+      pendingWebviewFlushTimer = null
+      flushPendingWebviewEvents()
+    }, 100)
+  }
+
+  onDestroy(() => {
+    if (pendingWebviewFlushTimer) {
+      clearTimeout(pendingWebviewFlushTimer)
+      pendingWebviewFlushTimer = null
+    }
+  })
+
   function publishDesktopLocalTerminal(info: any, action: 'add' | 'remove' = 'add') {
     if (!info?.url) return
-    sendToWebview(
-      {
-        type: 'connections:terminal',
-        data: {
-          action,
-          url: info.url,
-          key: info.apiKey ?? '',
-          name: '本机终端',
+    sendToWebview({
+      type: 'connections:terminal',
+      data: {
+        action,
+        url: info.url,
+        key: info.apiKey ?? '',
+        name: '本机终端',
+        provider: 'desktop-local',
+        managed_by: 'desktop',
+        config: {
           provider: 'desktop-local',
           managed_by: 'desktop',
-          config: {
-            provider: 'desktop-local',
-            managed_by: 'desktop',
-            runtime: 'open-terminal'
-          }
+          runtime: 'open-terminal'
         }
       }
-    )
+    })
   }
 
   // Listen for events from main process
@@ -612,14 +659,31 @@
         return
       }
 
-      // ── Desktop-only state (not forwarded to webviews) ─
+      // ── Desktop runtime state forwarded to loaded webviews ─
       if (data.type === 'status:open-terminal') {
         openTerminalStatus = data.data
+        sendToWebview(data)
+        return
+      }
+      if (data.type === 'open-terminal:state') {
+        openTerminalStatus = data.data?.status ?? null
+        openTerminalInfo = data.data?.canUse
+          ? { ...(data.data ?? {}), status: data.data?.status ?? 'started' }
+          : data.data?.url
+            ? { ...(data.data ?? {}), status: data.data?.status ?? 'started' }
+            : null
+        sendToWebview(data)
+        if (data.data?.canUse && data.data?.url && data.data?.apiKey) {
+          publishDesktopLocalTerminal(openTerminalInfo)
+        } else if (data.data?.url) {
+          publishDesktopLocalTerminal(data.data, 'remove')
+        }
         return
       }
       if (data.type === 'open-terminal:ready') {
         openTerminalInfo = { ...(data.data ?? {}), status: 'started' }
         openTerminalStatus = 'started'
+        sendToWebview(data)
         publishDesktopLocalTerminal(openTerminalInfo)
         return
       }
@@ -837,5 +901,4 @@
       }}
     />
   {/if}
-
 </div>
