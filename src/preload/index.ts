@@ -114,6 +114,7 @@ const api = {
   },
 
   // Open Terminal
+  installOpenTerminal: (force = false) => ipcRenderer.invoke('open-terminal:install', force),
   startOpenTerminal: () => ipcRenderer.invoke('open-terminal:start'),
   stopOpenTerminal: () => ipcRenderer.invoke('open-terminal:stop'),
   getOpenTerminalInfo: () => ipcRenderer.invoke('open-terminal:info'),

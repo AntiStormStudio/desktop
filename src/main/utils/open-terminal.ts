@@ -2,13 +2,16 @@
 
 import crypto from 'crypto'
 import log from 'electron-log'
+import { spawn } from 'child_process'
 import {
   getPythonPath,
   getConfig,
   setConfig,
+  installPython,
   installPackage,
   isPackageInstalled,
   isPythonInstalled,
+  isUvInstalled,
   portInUse
 } from './index'
 import { ServiceLock, isProcessAlive } from './service-lock'
@@ -30,6 +33,81 @@ const getPty = async () => {
 
 const lock = new ServiceLock('open-terminal')
 
+const OPEN_TERMINAL_STARTUP_TIMEOUT_MS = 30_000
+
+const createPipeProcessAdapter = (child: any) => {
+  const listeners = new Set<(data: string) => void>()
+  const forward = (data: Buffer | string) => {
+    const chunk = data.toString()
+    for (const listener of listeners) listener(chunk)
+  }
+
+  child.stdout?.on('data', forward)
+  child.stderr?.on('data', forward)
+  child.on('error', (error: Error) => {
+    forward(`Failed to start process: ${error.message}\n`)
+  })
+
+  return {
+    pid: child.pid,
+    kill: () => child.kill(),
+    onData: (listener: (data: string) => void) => {
+      listeners.add(listener)
+      return { dispose: () => listeners.delete(listener) }
+    },
+    onExit: (listener: (event: { exitCode: number | null; signal?: string | null }) => void) => {
+      child.once('exit', (exitCode: number | null, signal: string | null) => {
+        listener({ exitCode, signal })
+      })
+    }
+  }
+}
+
+const spawnOpenTerminalProcess = async (
+  pythonPath: string,
+  commandArgs: string[],
+  env: Record<string, string>
+) => {
+  try {
+    const pty = await getPty()
+    return pty.spawn(pythonPath, commandArgs, {
+      name: 'xterm-256color',
+      cols: 200,
+      rows: 50,
+      env
+    })
+  } catch (error) {
+    log.warn(
+      `Open Terminal PTY spawn failed; falling back to child_process.spawn: ${error?.message ?? error}`
+    )
+    const child = spawn(pythonPath, commandArgs, {
+      env,
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
+    return createPipeProcessAdapter(child)
+  }
+}
+
+const waitForOpenTerminalReady = async (
+  host: string,
+  port: number,
+  getExited: () => boolean
+): Promise<void> => {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < OPEN_TERMINAL_STARTUP_TIMEOUT_MS) {
+    if (getExited()) {
+      const tail = logBuffer.join('').slice(-1200).trim()
+      throw new Error(
+        `Open Terminal exited before it was ready.${tail ? ` Last output: ${tail}` : ''}`
+      )
+    }
+    if (await portInUse(port, host)) return
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+
+  throw new Error('Timed out waiting for Open Terminal to start.')
+}
+
 // ─── Public API ─────────────────────────────────────────
 
 export const getOpenTerminalInfo = () => ({
@@ -42,6 +120,25 @@ export const getOpenTerminalInfo = () => ({
 export const getOpenTerminalPty = (): any | null => ptyProcess
 export const getOpenTerminalLog = (): string[] => logBuffer
 
+export const installOpenTerminal = async (
+  version?: string,
+  onStatus?: (status: string) => void,
+  force = false
+): Promise<boolean> => {
+  if (!isPythonInstalled() || !isUvInstalled()) {
+    onStatus?.('Installing Python runtime…')
+    await installPython(undefined, onStatus)
+  }
+
+  if (isPackageInstalled('open-terminal') && !version && !force) {
+    onStatus?.('Open Terminal is already installed.')
+    return true
+  }
+
+  onStatus?.('Installing Open Terminal…')
+  return installPackage('open-terminal', version, onStatus)
+}
+
 export const startOpenTerminal = async (
   port: number | null = null
 ): Promise<{ url: string; apiKey: string; pid: number }> => {
@@ -49,19 +146,20 @@ export const startOpenTerminal = async (
     return { url, apiKey, pid }
   }
 
-  await stopOpenTerminal()
+  await stopOpenTerminal(false)
 
-  if (!isPythonInstalled()) throw new Error('Python is not installed')
-  if (!isPackageInstalled('open-terminal')) {
-    log.info('open-terminal not installed, attempting install...')
-    try {
-      await installPackage('open-terminal')
-    } catch (err) {
-      throw new Error(
-        `Open Terminal is not installed and auto-install failed. ` +
-          `Please connect to the internet and try again. (${err?.message ?? err})`
-      )
+  try {
+    if (!isPackageInstalled('open-terminal')) {
+      log.info('open-terminal not installed, attempting install...')
+      const config = await getConfig()
+      await installOpenTerminal(config?.openTerminal?.version || undefined)
     }
+  } catch (err) {
+    lock.release()
+    throw new Error(
+      `Open Terminal is not installed and auto-install failed. ` +
+        `Please connect to the internet and try again. (${err?.message ?? err})`
+    )
   }
 
   const pythonPath = getPythonPath()
@@ -109,20 +207,16 @@ export const startOpenTerminal = async (
   log.info('Starting Open Terminal...', pythonPath, commandArgs.join(' '))
 
   let spawned: any
+  const spawnEnv = {
+    ...process.env,
+    ...(configEnvVars ?? {}),
+    PYTHONUNBUFFERED: '1',
+    ...(process.platform === 'win32' ? { PYTHONIOENCODING: 'utf-8' } : {})
+  }
   try {
-    const pty = await getPty()
-    spawned = pty.spawn(pythonPath, commandArgs, {
-      name: 'xterm-256color',
-      cols: 200,
-      rows: 50,
-      env: {
-        ...process.env,
-        ...(configEnvVars ?? {}),
-        PYTHONUNBUFFERED: '1',
-        ...(process.platform === 'win32' ? { PYTHONIOENCODING: 'utf-8' } : {})
-      }
-    })
+    spawned = await spawnOpenTerminalProcess(pythonPath, commandArgs, spawnEnv)
   } catch (error) {
+    lock.release()
     throw new Error(`Failed to spawn Open Terminal: ${error?.message ?? error}`)
   }
 
@@ -132,6 +226,7 @@ export const startOpenTerminal = async (
   pid = spawnedPid
   apiKey = generatedKey
   status = 'starting'
+  let exitedBeforeReady = false
 
   spawned.onData((data: string) => {
     logBuffer.push(data)
@@ -139,23 +234,39 @@ export const startOpenTerminal = async (
   })
 
   spawned.onExit(({ exitCode, signal }) => {
+    exitedBeforeReady = status === 'starting'
     log.info(`[OpenTerminal:${spawnedPid}] Exited code=${exitCode} signal=${signal}`)
     ptyProcess = null
     pid = null
     url = null
     apiKey = null
     status = 'stopped'
+    lock.release()
   })
 
   const serverUrl = `http://${host}:${availablePort}`
-  url = serverUrl
-  status = 'started'
-  log.info(`Open Terminal started — PID: ${spawnedPid}, URL: ${serverUrl}`)
+  try {
+    await waitForOpenTerminalReady(host, availablePort, () => exitedBeforeReady)
+    url = serverUrl
+    status = 'started'
+    log.info(`Open Terminal started — PID: ${spawnedPid}, URL: ${serverUrl}`)
+  } catch (error) {
+    try {
+      spawned.kill()
+    } catch {}
+    ptyProcess = null
+    pid = null
+    url = null
+    apiKey = null
+    status = 'failed'
+    lock.release()
+    throw error
+  }
 
   return { url: serverUrl, apiKey: generatedKey, pid: spawnedPid }
 }
 
-export const stopOpenTerminal = async (): Promise<void> => {
+export const stopOpenTerminal = async (releaseLock = true): Promise<void> => {
   if (ptyProcess) {
     try {
       ptyProcess.kill()
@@ -180,7 +291,7 @@ export const stopOpenTerminal = async (): Promise<void> => {
   apiKey = null
   status = null
   logBuffer = []
-  lock.release()
+  if (releaseLock) lock.release()
 }
 
 /**

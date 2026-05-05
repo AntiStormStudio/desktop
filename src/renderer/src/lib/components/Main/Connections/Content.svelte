@@ -103,6 +103,7 @@
 
   // Content preload path for webview bridge
   let contentPreloadPath: string = $state('')
+  let lastNotifiedAuthToken = $state('')
 
   // Server is starting up (local)
   const serverStarting = $derived(
@@ -134,6 +135,14 @@
   const openActiveInBrowser = () => {
     if (activeTab?.url) {
       window.electronAPI.openInBrowser(activeTab.url)
+    }
+  }
+
+  const isAuthPageUrl = (value: string) => {
+    try {
+      return new URL(value).pathname.startsWith('/auth')
+    } catch {
+      return false
     }
   }
 
@@ -350,11 +359,14 @@
             if (requestData.type === 'token:update') {
               const token = typeof requestData.token === 'string' ? requestData.token : ''
               window.electronAPI.setAuthToken?.(token)
-              if (token) {
+              if (token && token !== lastNotifiedAuthToken && isAuthPageUrl(wv.getURL?.() ?? '')) {
+                lastNotifiedAuthToken = token
                 window.electronAPI.notification?.(
                   $i18n.t('app.name'),
                   $i18n.t('auth.desktopSignedIn')
                 )
+              } else if (!token) {
+                lastNotifiedAuthToken = ''
               }
               if (requestData._requestId) {
                 wv.send('desktop:response', {

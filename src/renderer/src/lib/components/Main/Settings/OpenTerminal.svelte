@@ -14,16 +14,35 @@
   let loaded = $state(false)
   let uninstalling = $state(false)
   let installing = $state(false)
+  let installStatus = $state('')
+  let installError = $state('')
 
-  onMount(async () => {
-    otInfo = await window.electronAPI.getOpenTerminalInfo()
-    version = await window.electronAPI.getPackageVersion('open-terminal')
-    loaded = true
+  onMount(() => {
+    const unsubscribe = window.electronAPI.onData((data: any) => {
+      if (data.type === 'status:open-terminal-install') {
+        installStatus = data.data ?? ''
+      } else if (data.type === 'status:open-terminal') {
+        otInfo = { ...(otInfo ?? {}), status: data.data }
+      } else if (data.type === 'error' && String(data.data?.message ?? '').includes('Open Terminal')) {
+        installError = data.data.message
+      }
+    })
+
+    ;(async () => {
+      otInfo = await window.electronAPI.getOpenTerminalInfo()
+      version = await window.electronAPI.getPackageVersion('open-terminal')
+      loaded = true
+    })()
+
+    return unsubscribe
   })
 
   const installed = $derived(version !== null)
 
   const isRunning = $derived(otInfo?.status === 'started')
+
+  const errorMessage = (error: unknown, fallback: string) =>
+    error instanceof Error ? error.message : typeof error === 'string' ? error : fallback
 
   const updateOtConfig = async (key: string, value: any) => {
     const current = $config ?? {}
@@ -34,52 +53,102 @@
 
   const stopTerminal = async () => {
     stopping = true
+    installError = ''
     try {
       await window.electronAPI.stopOpenTerminal()
       otInfo = await window.electronAPI.getOpenTerminalInfo()
     } catch (e) {
       console.error('Failed to stop Open Terminal:', e)
+      installError = errorMessage(e, 'Failed to stop Open Terminal.')
+    } finally {
+      stopping = false
     }
-    stopping = false
   }
 
   const startTerminal = async () => {
     starting = true
+    installError = ''
     try {
-      await window.electronAPI.startOpenTerminal()
+      const result = await window.electronAPI.startOpenTerminal()
+      if (!result) {
+        installError = 'Open Terminal failed to start. Check the logs and try again.'
+        otInfo = await window.electronAPI.getOpenTerminalInfo()
+        return
+      }
       otInfo = await window.electronAPI.getOpenTerminalInfo()
+      version = await window.electronAPI.getPackageVersion('open-terminal')
     } catch (e) {
       console.error('Failed to start Open Terminal:', e)
+      installError = errorMessage(e, 'Failed to start Open Terminal.')
+    } finally {
+      starting = false
     }
-    starting = false
   }
 
   const restartTerminal = async () => {
     restarting = true
+    installError = ''
     try {
       await window.electronAPI.stopOpenTerminal()
-      await window.electronAPI.startOpenTerminal()
+      const result = await window.electronAPI.startOpenTerminal()
+      if (!result) {
+        installError = 'Open Terminal failed to restart. Check the logs and try again.'
+        otInfo = await window.electronAPI.getOpenTerminalInfo()
+        return
+      }
       otInfo = await window.electronAPI.getOpenTerminalInfo()
+      version = await window.electronAPI.getPackageVersion('open-terminal')
     } catch (e) {
       console.error('Failed to restart Open Terminal:', e)
+      installError = errorMessage(e, 'Failed to restart Open Terminal.')
+    } finally {
+      restarting = false
     }
-    restarting = false
+  }
+
+  const installTerminal = async () => {
+    installing = true
+    installStatus = ''
+    installError = ''
+    try {
+      const ok = await window.electronAPI.installOpenTerminal()
+      if (!ok) {
+        installError = 'Open Terminal installation failed. Please check your network and try again.'
+        return
+      }
+      otInfo = await window.electronAPI.getOpenTerminalInfo()
+      version = await window.electronAPI.getPackageVersion('open-terminal')
+    } catch (e) {
+      console.error('Failed to install Open Terminal:', e)
+      installError = errorMessage(e, 'Failed to install Open Terminal.')
+    } finally {
+      installing = false
+    }
   }
 
   const updatePackage = async () => {
     updating = true
+    installStatus = ''
+    installError = ''
     try {
       if (isRunning) {
         await window.electronAPI.stopOpenTerminal()
       }
       // Reinstall to get latest
+      const ok = await window.electronAPI.installOpenTerminal(true)
+      if (!ok) {
+        installError = 'Open Terminal update failed. Please check your network and try again.'
+        return
+      }
       await window.electronAPI.startOpenTerminal()
       otInfo = await window.electronAPI.getOpenTerminalInfo()
       version = await window.electronAPI.getPackageVersion('open-terminal')
     } catch (e) {
       console.error('Failed to update Open Terminal:', e)
+      installError = errorMessage(e, 'Failed to update Open Terminal.')
+    } finally {
+      updating = false
     }
-    updating = false
   }
 
   const copyOtApiKey = async () => {
@@ -102,23 +171,21 @@
       <div class="text-[11px] opacity-20 mt-0.5">
         {$i18n.t('settings.terminal.notInstalledDesc')}
       </div>
+      {#if installing && installStatus}
+        <div class="text-[11px] opacity-35 mt-1 max-w-[320px] break-words">{installStatus}</div>
+      {/if}
+      {#if installError}
+        <div class="text-[11px] text-red-500/80 mt-1 max-w-[320px] break-words">
+          {installError}
+        </div>
+      {/if}
     </div>
     <button
       class="text-[12px] opacity-40 hover:opacity-70 px-3 py-1.5 bg-black/[0.04] dark:bg-white/[0.06] transition border-none text-[#1d1d1f] dark:text-[#fafafa] rounded-xl flex items-center gap-1.5 {installing
         ? 'pointer-events-none opacity-20'
         : ''}"
       disabled={installing}
-      onclick={async () => {
-        installing = true
-        try {
-          await window.electronAPI.startOpenTerminal()
-          otInfo = await window.electronAPI.getOpenTerminalInfo()
-          version = await window.electronAPI.getPackageVersion('open-terminal')
-        } catch (e) {
-          console.error('Failed to install:', e)
-        }
-        installing = false
-      }}
+      onclick={installTerminal}
     >
       {#if installing}
         <div
@@ -278,6 +345,15 @@
           {/if}
         </button>
       </div>
+
+      {#if (installing || updating) && installStatus}
+        <div class="text-[11px] opacity-35 mt-2 max-w-[520px] break-words">{installStatus}</div>
+      {/if}
+      {#if installError}
+        <div class="text-[11px] text-red-500/80 mt-2 max-w-[520px] break-words">
+          {installError}
+        </div>
+      {/if}
     </div>
 
     <!-- Running Instance Info -->

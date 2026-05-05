@@ -57,7 +57,8 @@ import {
   getOpenTerminalInfo,
   getOpenTerminalPty,
   getOpenTerminalLog,
-  validateOpenTerminalProcess
+  validateOpenTerminalProcess,
+  installOpenTerminal
 } from './utils/open-terminal'
 
 import {
@@ -2367,6 +2368,32 @@ if (!gotTheLock) {
         sendToRenderer('status:open-terminal', 'failed')
         sendToRenderer('error', { message: `Open Terminal failed: ${error?.message}` })
         return null
+      }
+    })
+
+    ipcMain.handle('open-terminal:install', async (_event, force = false) => {
+      try {
+        CONFIG = await getConfig()
+        const otVersion = CONFIG?.openTerminal?.version || undefined
+        sendToRenderer('status:open-terminal-install', 'Installing Python runtime…')
+        const res = await installOpenTerminal(
+          otVersion,
+          (status: string) => {
+            sendToRenderer('status:open-terminal-install', status)
+          },
+          Boolean(force)
+        )
+        sendToRenderer('status:open-terminal-install', res ? 'Installed' : 'Failed')
+        return res
+      } catch (error) {
+        log.error('Failed to install Open Terminal:', error)
+        sendToRenderer('status:open-terminal-install', 'Failed')
+        sendToRenderer('error', {
+          message:
+            error?.message ??
+            'Open Terminal installation failed. Please check your internet connection and try again.'
+        })
+        return false
       }
     })
 
