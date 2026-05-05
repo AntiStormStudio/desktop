@@ -52,6 +52,7 @@ export const APP_PROFILE = {
     "allowedCapabilities": [
       "app.info",
       "app.openExternal",
+      "app.openSettings",
       "system.platform",
       "system.selectFolder",
       "resources.openPath",
@@ -66,7 +67,8 @@ export const APP_PROFILE = {
     "owner": "open-webui",
     "repo": "desktop",
     "url": "https://chat.spark-ai.top/api/v1/configs/apps/updates/desktop/",
-    "updaterCacheDirName": "spark-atlas-updater"
+    "updaterCacheDirName": "spark-atlas-updater",
+    "currentVersion": ""
   },
   "assets": {
     "iconDir": "/Users/cary/Desktop/Fun/Spark Atlas/icons",

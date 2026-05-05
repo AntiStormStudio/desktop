@@ -831,6 +831,12 @@ export interface AppConfig {
   glassEffect: boolean
   desktopAutoUpdate: boolean
   desktopAutoUpdateInstallOnLaunch: boolean
+  desktopUpdateVersion: string
+  desktopUpdateReleaseDate: string
+  desktopUpdateReleaseNotes: string
+  desktopAvailableUpdateVersion: string
+  desktopAvailableUpdateReleaseDate: string
+  desktopAvailableUpdateReleaseNotes: string
   globalShortcut: string
   spotlightShortcut: string
   installDir: string
@@ -873,6 +879,12 @@ const DEFAULT_CONFIG: AppConfig = {
   glassEffect: true,
   desktopAutoUpdate: true,
   desktopAutoUpdateInstallOnLaunch: false,
+  desktopUpdateVersion: '',
+  desktopUpdateReleaseDate: '',
+  desktopUpdateReleaseNotes: '',
+  desktopAvailableUpdateVersion: '',
+  desktopAvailableUpdateReleaseDate: '',
+  desktopAvailableUpdateReleaseNotes: '',
   globalShortcut: 'Alt+CommandOrControl+O',
   spotlightShortcut: 'Shift+CommandOrControl+I',
   installDir: '',

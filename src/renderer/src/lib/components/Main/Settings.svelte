@@ -13,11 +13,20 @@
 
   interface Props {
     onClose: () => void
+    initialTab?: string
   }
 
-  let { onClose }: Props = $props()
+  let { onClose, initialTab = 'general' }: Props = $props()
 
-  let settingsTab = $state('general')
+  let settingsTab = $state(initialTab)
+  let lastInitialTab = $state(initialTab)
+
+  $effect(() => {
+    if (initialTab && initialTab !== lastInitialTab) {
+      settingsTab = initialTab
+      lastInitialTab = initialTab
+    }
+  })
 
   const tabs = [
     {
@@ -63,7 +72,7 @@
   const visibleTabs = $derived(
     tabs.filter((tab) => {
       if (!APP_PROFILE.features.allowLocalOpenWebUIInstall) {
-        return !['openwebui', 'terminal', 'inference', 'models', 'connections'].includes(tab.id)
+        return !['openwebui', 'inference', 'models', 'connections'].includes(tab.id)
       }
       return true
     })

@@ -64,7 +64,8 @@ profile.brand.officialWebsiteUrl = envString(
 )
 profile.brand.copyrightText = envString(
   'DESKTOP_COPYRIGHT_TEXT',
-  profile.brand.copyrightText ?? `Copyright (c) ${new Date().getFullYear()} ${profile.brand.name}. All rights reserved.`
+  profile.brand.copyrightText ??
+    `Copyright (c) ${new Date().getFullYear()} ${profile.brand.name}. All rights reserved.`
 )
 profile.brand.creatorText = envString(
   'DESKTOP_CREATOR_TEXT',
@@ -135,6 +136,10 @@ profile.updates.provider = envString('DESKTOP_UPDATE_PROVIDER', profile.updates.
 profile.updates.owner = envString('DESKTOP_UPDATE_OWNER', profile.updates.owner)
 profile.updates.repo = envString('DESKTOP_UPDATE_REPO', profile.updates.repo)
 profile.updates.url = envString('DESKTOP_UPDATE_URL', profile.updates.url)
+profile.updates.currentVersion = envString(
+  'DESKTOP_UPDATE_CURRENT_VERSION',
+  profile.updates.currentVersion ?? ''
+)
 profile.updates.updaterCacheDirName = envString(
   'DESKTOP_UPDATE_CACHE_DIR',
   profile.updates.updaterCacheDirName
@@ -211,7 +216,9 @@ const makePaddedMacIcon = (source, target) => {
     )
     return true
   } catch (error) {
-    console.warn(`Could not generate padded macOS icon, using source icon: ${error?.message ?? error}`)
+    console.warn(
+      `Could not generate padded macOS icon, using source icon: ${error?.message ?? error}`
+    )
     return copyIfExists(source, target)
   }
 }

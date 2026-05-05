@@ -113,17 +113,13 @@
   )
 
   const activeWebviewError = $derived(
-    view === 'connected' && activeTabId
-      ? (webviewErrors.get(activeTabId) ?? null)
-      : null
+    view === 'connected' && activeTabId ? (webviewErrors.get(activeTabId) ?? null) : null
   )
 
   const isLoading = $derived(
     connectingId !== '' ||
       (serverStarting && activeConnectionId === localConn?.id) ||
-      (view === 'connected' &&
-        !activeWebviewError &&
-        webviewLoading.get(activeTabId) === true)
+      (view === 'connected' && !activeWebviewError && webviewLoading.get(activeTabId) === true)
   )
 
   const retryActiveWebview = () => {
@@ -351,12 +347,15 @@
             if (!requestData) return
 
             // Handle auth token relay from webview
-            if (requestData.type === 'token:update' && requestData.token) {
-              window.electronAPI.setAuthToken?.(requestData.token)
-              window.electronAPI.notification?.(
-                $i18n.t('app.name'),
-                $i18n.t('auth.desktopSignedIn')
-              )
+            if (requestData.type === 'token:update') {
+              const token = typeof requestData.token === 'string' ? requestData.token : ''
+              window.electronAPI.setAuthToken?.(token)
+              if (token) {
+                window.electronAPI.notification?.(
+                  $i18n.t('app.name'),
+                  $i18n.t('auth.desktopSignedIn')
+                )
+              }
               if (requestData._requestId) {
                 wv.send('desktop:response', {
                   _responseId: requestData._requestId,
@@ -482,11 +481,23 @@
                   title={$i18n.t('tabs.focus')}
                   aria-label={$i18n.t('tabs.focus')}
                   onclick={() => {
-                    window.dispatchEvent(new CustomEvent('spark-tabs:switch', { detail: { tabId: tab.id } }))
+                    window.dispatchEvent(
+                      new CustomEvent('spark-tabs:switch', { detail: { tabId: tab.id } })
+                    )
                   }}
                 >
-                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75L21 21m-9-3.75a6.75 6.75 0 110-13.5 6.75 6.75 0 010 13.5z" />
+                  <svg
+                    class="w-3 h-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M15.75 15.75L21 21m-9-3.75a6.75 6.75 0 110-13.5 6.75 6.75 0 010 13.5z"
+                    />
                   </svg>
                 </button>
               {/if}
@@ -497,7 +508,13 @@
                   aria-label={$i18n.t('tabs.unsplit')}
                   onclick={() => onUnsplitTab(tab.id)}
                 >
-                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <svg
+                    class="w-3 h-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  >
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -519,7 +536,10 @@
 
       {#if paneCount > 1}
         <button
-          class="split-resize-handle split-resize-handle-column absolute top-0 bottom-0 z-20 w-2.5 -translate-x-1/2 cursor-col-resize border-none bg-transparent {resizingAxis === 'column' ? 'is-resizing' : ''}"
+          class="split-resize-handle split-resize-handle-column absolute top-0 bottom-0 z-20 w-2.5 -translate-x-1/2 cursor-col-resize border-none bg-transparent {resizingAxis ===
+          'column'
+            ? 'is-resizing'
+            : ''}"
           style="left: {splitColumn}%"
           aria-label={$i18n.t('tabs.resizeColumns')}
           onmousedown={(e) => startResize('column', e)}
@@ -527,7 +547,10 @@
       {/if}
       {#if paneCount > 2}
         <button
-          class="split-resize-handle split-resize-handle-row absolute left-0 right-0 z-20 h-2.5 -translate-y-1/2 cursor-row-resize border-none bg-transparent {resizingAxis === 'row' ? 'is-resizing' : ''}"
+          class="split-resize-handle split-resize-handle-row absolute left-0 right-0 z-20 h-2.5 -translate-y-1/2 cursor-row-resize border-none bg-transparent {resizingAxis ===
+          'row'
+            ? 'is-resizing'
+            : ''}"
           style="top: {splitRow}%"
           aria-label={$i18n.t('tabs.resizeRows')}
           onmousedown={(e) => startResize('row', e)}

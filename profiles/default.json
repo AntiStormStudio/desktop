@@ -51,6 +51,7 @@
     "allowedCapabilities": [
       "app.info",
       "app.openExternal",
+      "app.openSettings",
       "system.platform",
       "system.selectFolder",
       "resources.openPath",

@@ -21,6 +21,8 @@
     | 'error'
   let updateStatus = $state<UpdateStatus>('idle')
   let updateVersion = $state<string | null>(null)
+  let updateReleaseDate = $state<string | null>(null)
+  let updateReleaseNotes = $state<string | null>(null)
   let downloadPercent = $state(0)
   let updateError = $state<string | null>(null)
 
@@ -30,6 +32,40 @@
   let changelogOpen = $state(false)
   let changelogLoading = $state(false)
   let changelogEntries = $state<{ version: string; date: string; body: string }[]>([])
+  let publishedChangelogEntry = $derived.by(() => {
+    const body = (
+      updateReleaseNotes ||
+      $config?.desktopAvailableUpdateReleaseNotes ||
+      $config?.desktopUpdateReleaseNotes ||
+      ''
+    ).trim()
+    if (!body) return null
+
+    return {
+      version:
+        updateVersion ||
+        $config?.desktopAvailableUpdateVersion ||
+        $config?.desktopUpdateVersion ||
+        $appInfo?.version ||
+        '',
+      date:
+        updateReleaseDate ||
+        $config?.desktopAvailableUpdateReleaseDate ||
+        $config?.desktopUpdateReleaseDate ||
+        '',
+      body
+    }
+  })
+  let displayedChangelogEntries = $derived.by(() => {
+    if (!publishedChangelogEntry) return changelogEntries
+
+    const hasDuplicate = changelogEntries.some(
+      (entry) =>
+        entry.version === publishedChangelogEntry?.version &&
+        entry.body === publishedChangelogEntry.body
+    )
+    return hasDuplicate ? changelogEntries : [publishedChangelogEntry, ...changelogEntries]
+  })
 
   // ── Easter Egg ────────────────────────────────────────
   let clickCount = $state(0)
@@ -142,6 +178,10 @@
   }
 
   onMount(async () => {
+    try {
+      config.set(await window.electronAPI.getConfig())
+    } catch {}
+
     openWebuiVersion = await window.electronAPI.getPackageVersion('open-webui')
     openTerminalVersion = await window.electronAPI.getPackageVersion('open-terminal')
 
@@ -160,9 +200,18 @@
         case 'update:available':
           updateStatus = 'available'
           updateVersion = data.data?.version ?? null
+          updateReleaseDate = data.data?.releaseDate ?? null
+          updateReleaseNotes = data.data?.releaseNotes ?? null
           break
         case 'update:not-available':
           updateStatus = 'up-to-date'
+          updateVersion = data.data?.version ?? updateVersion
+          updateReleaseDate = data.data?.releaseDate ?? updateReleaseDate
+          updateReleaseNotes = data.data?.releaseNotes ?? updateReleaseNotes
+          void window.electronAPI
+            .getConfig()
+            .then((cfg: any) => config.set(cfg))
+            .catch(() => {})
           break
         case 'update:download-progress':
           updateStatus = 'downloading'
@@ -259,8 +308,16 @@
     changelogEntries = entries
   }
 
+  const escapeHtml = (value: string): string =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+
   const renderMarkdown = (md: string): string => {
-    return md
+    return escapeHtml(md)
       .replace(
         /^### (.+)$/gm,
         '<div class="text-[11px] opacity-50 font-semibold mt-3 mb-1">$1</div>'
@@ -433,10 +490,10 @@
       <div class="mt-3 max-h-64 overflow-y-auto pr-1">
         {#if changelogLoading}
           <div class="text-[11px] opacity-25">{$i18n.t('common.loading')}</div>
-        {:else if changelogEntries.length === 0}
+        {:else if displayedChangelogEntries.length === 0}
           <div class="text-[11px] opacity-25">{$i18n.t('settings.about.noChangelog')}</div>
         {:else}
-          {#each changelogEntries as entry, i}
+          {#each displayedChangelogEntries as entry, i}
             {#if i > 0}
               <div class="border-t border-white/[0.04] my-3"></div>
             {/if}

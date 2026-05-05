@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onDestroy, onMount } from 'svelte'
   import { fade } from 'svelte/transition'
   import { connections, config, appInfo } from '../stores'
   import { tooltip } from '../actions/tooltip'
@@ -17,11 +17,14 @@
 
   let visible = $state(false)
   let settingsOpen = $state(false)
+  let settingsTab = $state('general')
+  let settingsRequestId = $state(0)
   let sidebarOpen = $state(true)
   let activeConnectionName = $state('')
   let activeTabId = $state('')
   let browserTabs = $state<BrowserTab[]>([])
   let draggingTabId = $state('')
+  let cleanupDataListener: (() => void) | null = null
 
   const activeTab = $derived(browserTabs.find((tab) => tab.id === activeTabId) ?? null)
 
@@ -30,9 +33,20 @@
     const cfg = await window.electronAPI.getConfig()
     config.set(cfg)
     sidebarOpen = cfg?.showSidebar ?? true
+    cleanupDataListener = window.electronAPI.onData((data: any) => {
+      if (data.type === 'settings:open') {
+        settingsTab = data.data?.tab ?? 'general'
+        settingsRequestId += 1
+        settingsOpen = true
+      }
+    })
     setTimeout(() => {
       visible = true
     }, 50)
+  })
+
+  onDestroy(() => {
+    cleanupDataListener?.()
   })
 
   const toggleSidebar = () => {
@@ -41,9 +55,7 @@
   }
 
   const getActiveWebview = () =>
-    activeTabId
-      ? (document.querySelector(`webview[data-tab-id="${activeTabId}"]`) as any)
-      : null
+    activeTabId ? (document.querySelector(`webview[data-tab-id="${activeTabId}"]`) as any) : null
 
   const sendTabCommand = (type: string, detail: Record<string, any> = {}) => {
     window.dispatchEvent(new CustomEvent(type, { detail }))
@@ -161,7 +173,9 @@
       </div>
 
       <div class="flex-1 min-w-0 flex items-center self-stretch overflow-hidden">
-        <div class="tab-strip flex min-w-0 items-center gap-1 overflow-x-auto no-scrollbar no-drag px-1">
+        <div
+          class="tab-strip flex min-w-0 items-center gap-1 overflow-x-auto no-scrollbar no-drag px-1"
+        >
           {#if browserTabs.length > 0}
             {#each browserTabs as tab (tab.id)}
               <button
@@ -341,7 +355,9 @@
           in:fade={{ duration: 150 }}
           onclick={(e) => e.stopPropagation()}
         >
-          <Settings onClose={() => (settingsOpen = false)} />
+          {#key settingsRequestId}
+            <Settings initialTab={settingsTab} onClose={() => (settingsOpen = false)} />
+          {/key}
         </div>
       </div>
     {/if}

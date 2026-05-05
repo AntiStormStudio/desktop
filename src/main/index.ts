@@ -1225,6 +1225,29 @@ const broadcastSystemTheme = (): void => {
   sendToRenderer('theme:system-update', { theme: getResolvedSystemTheme() })
 }
 
+const prepareForAppShutdown = async (): Promise<void> => {
+  isQuiting = true
+  await stopLlamaCpp()
+  await stopOpenTerminal()
+  await stopServerHandler()
+  globalShortcut.unregisterAll()
+  mainWindow = null
+  for (const win of detachedContentWindows) {
+    if (!win.isDestroyed()) win.destroy()
+  }
+  detachedContentWindows.clear()
+  if (spotlightWindow && !spotlightWindow.isDestroyed()) {
+    spotlightWindow.destroy()
+  }
+  spotlightWindow = null
+  if (voiceInputWindow && !voiceInputWindow.isDestroyed()) {
+    voiceInputWindow.destroy()
+  }
+  voiceInputWindow = null
+  tray?.destroy()
+  tray = null
+}
+
 const buildDesktopLocalTerminalEvent = (action: 'add' | 'remove', info: any = {}) => ({
   action,
   url: info?.url ?? '',
@@ -1239,7 +1262,10 @@ const buildDesktopLocalTerminalEvent = (action: 'add' | 'remove', info: any = {}
   }
 })
 
-const notifyDesktopLocalTerminal = (action: 'add' | 'remove', info: any = getOpenTerminalInfo()) => {
+const notifyDesktopLocalTerminal = (
+  action: 'add' | 'remove',
+  info: any = getOpenTerminalInfo()
+) => {
   if (action === 'add' && (!info?.url || !info?.apiKey)) return
   if (action === 'remove' && !info?.url) return
   sendToRenderer('connections:terminal', buildDesktopLocalTerminalEvent(action, info))
@@ -1247,6 +1273,13 @@ const notifyDesktopLocalTerminal = (action: 'add' | 'remove', info: any = getOpe
 
 const getDesktopLocalTerminalInfo = () => ({
   ...getOpenTerminalInfo(),
+  installed: isPackageInstalled('open-terminal'),
+  enabled: CONFIG?.openTerminal?.enabled === true,
+  canUse:
+    isPackageInstalled('open-terminal') &&
+    CONFIG?.openTerminal?.enabled === true &&
+    getOpenTerminalInfo()?.status === 'started' &&
+    Boolean(getOpenTerminalInfo()?.url && getOpenTerminalInfo()?.apiKey),
   name: DESKTOP_LOCAL_TERMINAL_NAME,
   provider: 'desktop-local',
   managed_by: 'desktop',
@@ -1409,12 +1442,6 @@ const handleProtocolUrl = async (rawUrl: string): Promise<void> => {
   }
 
   ensureMainWindow()
-
-  if (await isConnectionLoggedIn(connection.id)) {
-    const result = await connectTo(connection)
-    if (result) sendToRenderer('connection:open', result)
-    return
-  }
 
   const serverOrigin = getOrigin(connection.url) || getOrigin(serverUrl)
   if (!serverOrigin) {
@@ -1728,6 +1755,13 @@ if (!gotTheLock) {
           openUrl(url)
           return true
         }
+        case 'app.openSettings': {
+          const tab = String(request.payload?.tab ?? 'general')
+          mainWindow?.show()
+          mainWindow?.focus()
+          sendToRenderer('settings:open', { tab })
+          return true
+        }
         case 'system.platform':
           return { platform: process.platform, arch: process.arch }
         case 'system.selectFolder': {
@@ -1756,6 +1790,9 @@ if (!gotTheLock) {
         case 'terminal.local.info':
           return getDesktopLocalTerminalInfo()
         case 'terminal.local.ensure': {
+          if (!isPackageInstalled('open-terminal') || CONFIG?.openTerminal?.enabled !== true) {
+            throw new Error('Open Terminal is not enabled in the desktop app.')
+          }
           let info = getOpenTerminalInfo()
           if (!info?.url || info?.status !== 'started') {
             sendToRenderer('status:open-terminal', 'starting')
@@ -1763,8 +1800,6 @@ if (!gotTheLock) {
             sendToRenderer('status:open-terminal', 'started')
             sendToRenderer('open-terminal:ready', result)
             notifyDesktopLocalTerminal('add', result)
-            await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: true } })
-            CONFIG = await getConfig()
             info = getOpenTerminalInfo()
           } else {
             notifyDesktopLocalTerminal('add', info)
@@ -2658,7 +2693,8 @@ if (!gotTheLock) {
     if (mainWindow) {
       initUpdater(mainWindow, {
         autoUpdateEnabled: CONFIG.desktopAutoUpdate !== false,
-        installPendingOnLaunch: CONFIG.desktopAutoUpdateInstallOnLaunch === true
+        installPendingOnLaunch: CONFIG.desktopAutoUpdateInstallOnLaunch === true,
+        prepareToQuitForInstall: prepareForAppShutdown
       })
       broadcastSystemTheme()
     }
@@ -2682,26 +2718,7 @@ if (!gotTheLock) {
     }
   })
 
-  app.on('before-quit', async () => {
-    isQuiting = true
-    await stopLlamaCpp()
-    await stopOpenTerminal()
-    await stopServerHandler()
-    globalShortcut.unregisterAll()
-    mainWindow = null
-    for (const win of detachedContentWindows) {
-      if (!win.isDestroyed()) win.destroy()
-    }
-    detachedContentWindows.clear()
-    if (spotlightWindow && !spotlightWindow.isDestroyed()) {
-      spotlightWindow.destroy()
-    }
-    spotlightWindow = null
-    if (voiceInputWindow && !voiceInputWindow.isDestroyed()) {
-      voiceInputWindow.destroy()
-    }
-    voiceInputWindow = null
-    tray?.destroy()
-    tray = null
+  app.on('before-quit', () => {
+    void prepareForAppShutdown()
   })
 }
