@@ -126,16 +126,16 @@
           use:tooltip={$i18n.t('sidebar.settings')}
         >
           <svg
-            class="w-[15px] h-[15px]"
+            class="w-[14px] h-[14px]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
-            stroke-width="1.7"
+            stroke-width="1.5"
           >
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
-              d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.213 1.278c.063.374.316.686.662.842.128.058.254.12.378.188.334.183.736.175 1.058-.026l1.1-.688a1.125 1.125 0 011.45.12l1.833 1.833c.389.389.44 1.003.12 1.45l-.688 1.1c-.201.322-.209.724-.026 1.058.068.124.13.25.188.378.156.346.468.599.842.662l1.278.213c.542.09.94.56.94 1.11v2.592c0 .55-.398 1.02-.94 1.11l-1.278.213c-.374.063-.686.316-.842.662-.058.128-.12.254-.188.378-.183.334-.175.736.026 1.058l.688 1.1c.32.447.269 1.061-.12 1.45l-1.833 1.833a1.125 1.125 0 01-1.45.12l-1.1-.688c-.322-.201-.724-.209-1.058-.026-.124.068-.25.13-.378.188-.346.156-.599.468-.662.842l-.213 1.278c-.09.542-.56.94-1.11.94h-2.592c-.55 0-1.02-.398-1.11-.94l-.213-1.278c-.063-.374-.316-.686-.662-.842a6.977 6.977 0 01-.378-.188c-.334-.183-.736-.175-1.058.026l-1.1.688a1.125 1.125 0 01-1.45-.12l-1.833-1.833a1.125 1.125 0 01-.12-1.45l.688-1.1c.201-.322.209-.724.026-1.058a6.977 6.977 0 01-.188-.378c-.156-.346-.468-.599-.842-.662l-1.278-.213A1.125 1.125 0 013 16.05v-2.592c0-.55.398-1.02.94-1.11l1.278-.213c.374-.063.686-.316.842-.662.058-.128.12-.254.188-.378.183-.334.175-.736-.026-1.058l-.688-1.1a1.125 1.125 0 01.12-1.45l1.833-1.833a1.125 1.125 0 011.45-.12l1.1.688c.322.201.724.209 1.058.026.124-.068.25-.13.378-.188.346-.156.599-.468.662-.842l.213-1.278z"
+              d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c-.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z"
             />
             <path
               stroke-linecap="round"
@@ -193,7 +193,7 @@
 
       <div class="flex-1 min-w-0 flex items-center self-stretch overflow-hidden">
         <div
-          class="tab-strip flex w-full min-w-0 flex-1 items-center gap-1 overflow-x-auto no-scrollbar no-drag px-1"
+          class="tab-strip flex w-full min-w-0 flex-1 items-center gap-1 overflow-x-auto no-scrollbar px-1"
         >
           {#if browserTabs.length > 0}
             {#each browserTabs as tab (tab.id)}
@@ -202,7 +202,7 @@
                 data-active={tab.id === activeTabId}
                 data-compact={compactTabs}
                 style={`--tab-basis: ${tabBasis}; --tab-min-width: ${tabMinWidth};`}
-                class="browser-tab group h-[26px] px-2 flex items-center gap-1.5 rounded-md border border-transparent text-left text-[#1d1d1f] dark:text-[#fafafa] transition {tab.id ===
+                class="browser-tab no-drag group h-[26px] px-2 flex items-center gap-1.5 rounded-md border border-transparent text-left text-[#1d1d1f] dark:text-[#fafafa] transition {tab.id ===
                 activeTabId
                   ? 'active-tab bg-white/85 dark:bg-white/[0.10]'
                   : 'bg-transparent opacity-55 hover:opacity-90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}"
@@ -307,7 +307,7 @@
             </div>
           {/if}
           <button
-            class="add-tab-button h-[26px] w-[26px] flex items-center justify-center rounded-md border-none bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-45 hover:opacity-90 hover:bg-black/[0.05] dark:hover:bg-white/[0.06]"
+            class="add-tab-button no-drag h-[26px] w-[26px] flex items-center justify-center rounded-md border-none bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-45 hover:opacity-90 hover:bg-black/[0.05] dark:hover:bg-white/[0.06]"
             onclick={() => sendTabCommand('spark-tabs:new')}
             title={$i18n.t('tabs.new')}
             aria-label={$i18n.t('tabs.new')}

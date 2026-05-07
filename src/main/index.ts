@@ -196,22 +196,24 @@ const configureWebAuthnSupport = (): void => {
   }
 
   const keychainAccessGroup = process.env.DESKTOP_WEBAUTHN_KEYCHAIN_ACCESS_GROUP
-  if (!keychainAccessGroup) {
-    log.info(
-      'WebAuthn passkeys are allowed for Spark; set DESKTOP_WEBAUTHN_KEYCHAIN_ACCESS_GROUP to enable Touch ID credentials on signed macOS builds.'
-    )
-    return
-  }
-
-  try {
-    configureWebAuthn.call(app, {
-      touchID: {
-        keychainAccessGroup
-      }
-    })
-    log.info(`Touch ID WebAuthn enabled with keychain access group: ${keychainAccessGroup}`)
-  } catch (error) {
-    log.warn('Failed to configure Touch ID WebAuthn support:', error)
+  if (keychainAccessGroup) {
+    try {
+      configureWebAuthn.call(app, {
+        touchID: {
+          keychainAccessGroup
+        }
+      })
+      log.info(`Touch ID WebAuthn enabled with keychain access group: ${keychainAccessGroup}`)
+    } catch (error) {
+      log.warn('Failed to configure Touch ID WebAuthn support:', error)
+    }
+  } else {
+    try {
+      configureWebAuthn.call(app, {})
+      log.info(`WebAuthn passkeys enabled for ${getSparkPasskeyRpId()} on macOS (no Touch ID keychain group).`)
+    } catch (error) {
+      log.warn('Failed to configure WebAuthn support on macOS:', error)
+    }
   }
 }
 

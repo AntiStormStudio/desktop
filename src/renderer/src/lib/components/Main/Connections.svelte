@@ -619,9 +619,15 @@
       if (data.type === 'connection:open' && data.data?.url) {
         const connId = data.data.connectionId ?? ''
         const incomingUrl = data.data.url
+        const isAuthUrl =
+          incomingUrl.includes('desktop_magic_ticket') ||
+          incomingUrl.includes('/auth')
         const tab = browserTabs.find((item) => item.connectionId === connId)
         if (tab) {
           selectTab(tab.id)
+          if (isAuthUrl) {
+            navigateTab(tab.id, incomingUrl)
+          }
         } else {
           createTab(connId, incomingUrl)
         }
