@@ -154,8 +154,65 @@ const REMOTE_PERMISSION_ALLOWLIST = new Set<string>([
     : [])
 ])
 
-const isRemotePermissionAllowed = (permission: string): boolean => {
+const PASSKEY_PERMISSIONS = new Set(['publickey-credentials-create', 'publickey-credentials-get'])
+
+const getSparkPasskeyRpId = (): string => {
+  try {
+    return new URL(FEATURES.defaultRemoteOpenWebUI || BRAND.homepage).hostname
+  } catch {
+    return 'chat.spark-ai.top'
+  }
+}
+
+const isSparkPasskeyOrigin = (origin?: string): boolean => {
+  if (!origin) return false
+  try {
+    const url = new URL(origin)
+    return url.protocol === 'https:' && url.hostname === getSparkPasskeyRpId()
+  } catch {
+    return false
+  }
+}
+
+const isRemotePermissionAllowed = (permission: string, origin?: string): boolean => {
+  if (PASSKEY_PERMISSIONS.has(permission)) {
+    return Boolean(FEATURES.allowRemotePasskeys && isSparkPasskeyOrigin(origin))
+  }
   return REMOTE_PERMISSION_ALLOWLIST.has(permission)
+}
+
+const configureWebAuthnSupport = (): void => {
+  if (!FEATURES.allowRemotePasskeys) return
+
+  const configureWebAuthn = (app as any).configureWebAuthn
+  if (typeof configureWebAuthn !== 'function') {
+    log.warn('WebAuthn platform authenticator support requires Electron 41.5.0 or newer.')
+    return
+  }
+
+  if (process.platform !== 'darwin') {
+    log.info(`WebAuthn passkeys enabled for ${getSparkPasskeyRpId()} on ${process.platform}.`)
+    return
+  }
+
+  const keychainAccessGroup = process.env.DESKTOP_WEBAUTHN_KEYCHAIN_ACCESS_GROUP
+  if (!keychainAccessGroup) {
+    log.info(
+      'WebAuthn passkeys are allowed for Spark; set DESKTOP_WEBAUTHN_KEYCHAIN_ACCESS_GROUP to enable Touch ID credentials on signed macOS builds.'
+    )
+    return
+  }
+
+  try {
+    configureWebAuthn.call(app, {
+      touchID: {
+        keychainAccessGroup
+      }
+    })
+    log.info(`Touch ID WebAuthn enabled with keychain access group: ${keychainAccessGroup}`)
+  } catch (error) {
+    log.warn('Failed to configure Touch ID WebAuthn support:', error)
+  }
 }
 
 const isOriginAllowedInWebview = (targetUrl: string, currentUrl?: string): boolean => {
@@ -171,6 +228,40 @@ const isOriginAllowedInWebview = (targetUrl: string, currentUrl?: string): boole
   }
 }
 
+const OAUTH_PROVIDER_HOSTS = new Set([
+  'github.com',
+  'accounts.google.com',
+  'appleid.apple.com',
+  'login.microsoftonline.com',
+  'login.live.com',
+  'facebook.com',
+  'www.facebook.com'
+])
+
+const isKnownOAuthProviderUrl = (targetUrl: string, currentUrl?: string): boolean => {
+  try {
+    const target = new URL(targetUrl)
+    if (target.protocol !== 'https:') return false
+    if (currentUrl && target.origin === new URL(currentUrl).origin) return false
+
+    const hostname = target.hostname.toLowerCase()
+    if (OAUTH_PROVIDER_HOSTS.has(hostname)) return true
+    if (hostname.endsWith('.accounts.google.com')) return true
+    if (hostname.endsWith('.login.microsoftonline.com')) return true
+    if (hostname.endsWith('.auth0.com')) return true
+    if (hostname.endsWith('.okta.com') || hostname.endsWith('.okta-emea.com')) return true
+
+    return false
+  } catch {
+    return false
+  }
+}
+
+const shouldOpenWebviewUrlExternally = (targetUrl: string, currentUrl?: string): boolean => {
+  if (isKnownOAuthProviderUrl(targetUrl, currentUrl)) return true
+  return !isOriginAllowedInWebview(targetUrl, currentUrl)
+}
+
 if (gpuSandboxDisabled) {
   log.info('GPU sandbox disabled due to previous GPU process crash')
   app.commandLine.appendSwitch('disable-gpu-sandbox')
@@ -184,8 +275,12 @@ app.disableDomainBlockingFor3DAPIs()
 
 let mainWindow: BrowserWindow | null = null
 const detachedContentWindows = new Set<BrowserWindow>()
+const configuredRemoteSessions = new WeakSet<Electron.Session>()
 let spotlightWindow: BrowserWindow | null = null
 let voiceInputWindow: BrowserWindow | null = null
+let sourcePickerWindow: BrowserWindow | null = null
+let sourcePickerResolve: ((index: number) => void) | null = null
+let orderedSourcesGlobal: Electron.DesktopCapturerSource[] = []
 let tray: Tray | null = null
 let isQuiting = false
 
@@ -729,15 +824,123 @@ async function getDesktopCaptureSources(
   if (!(await ensureScreenCaptureAccess())) return []
   return desktopCapturer.getSources({
     types: ['screen', 'window'],
-    thumbnailSize
+    thumbnailSize,
+    fetchWindowIcons: true
   })
+}
+
+const getDesktopCaptureSourceType = (source: Electron.DesktopCapturerSource): string => {
+  return source.id.startsWith('screen:') ? 'screen' : 'window'
+}
+
+const getDesktopCaptureSourceLabel = (
+  source: Electron.DesktopCapturerSource,
+  index: number
+): string => {
+  const type = getDesktopCaptureSourceType(source) === 'screen' ? 'Screen' : 'Window'
+  return `${type} ${index + 1}: ${source.name || source.id}`
+}
+
+async function showVisualSourcePicker(
+  sources: Electron.DesktopCapturerSource[]
+): Promise<number> {
+  if (sources.length === 0) return -1
+  if (sourcePickerWindow && !sourcePickerWindow.isDestroyed()) {
+    sourcePickerWindow.close()
+  }
+
+  const { screen } = require('electron')
+  const cursorPoint = screen.getCursorScreenPoint()
+  const activeDisplay = screen.getDisplayNearestPoint(cursorPoint)
+  const { x: sx, y: sy, width: sw, height: sh } = activeDisplay.bounds
+
+  const winW = 660
+  const winH = 500
+
+  return new Promise<number>((resolve) => {
+    sourcePickerResolve = resolve
+
+    sourcePickerWindow = new BrowserWindow({
+      x: sx + Math.round((sw - winW) / 2),
+      y: sy + Math.round((sh - winH) / 2),
+      width: winW,
+      height: winH,
+      frame: false,
+      transparent: false,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      resizable: false,
+      show: false,
+      focusable: true,
+      title: 'Select Capture Source',
+      icon: path.join(__dirname, 'assets/icon.png'),
+      webPreferences: {
+        preload: join(__dirname, '../preload/source-picker-preload.js'),
+        sandbox: false,
+        webviewTag: false
+      }
+    })
+
+    sourcePickerWindow.on('closed', () => {
+      sourcePickerWindow = null
+      if (sourcePickerResolve) {
+        sourcePickerResolve(-1)
+        sourcePickerResolve = null
+      }
+    })
+
+    sourcePickerWindow.once('ready-to-show', () => {
+      sourcePickerWindow!.show()
+      const mapped = sources.map((source, i) => ({
+        id: source.id,
+        name: source.name || `Source ${i + 1}`,
+        type: getDesktopCaptureSourceType(source),
+        thumbnail: source.thumbnail?.isEmpty() ? null : source.thumbnail.toDataURL()
+      }))
+      sourcePickerWindow!.webContents.send('source-picker:sources', mapped)
+    })
+
+    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+      sourcePickerWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/source-picker.html`)
+    } else {
+      sourcePickerWindow.loadFile(join(__dirname, '../renderer/source-picker.html'))
+    }
+  })
+}
+
+async function selectDesktopCaptureSource(
+  sources: Electron.DesktopCapturerSource[],
+  preferredSourceId?: string,
+  prompt = true
+): Promise<Electron.DesktopCapturerSource | null> {
+  if (preferredSourceId) {
+    const preferred = sources.find((source) => source.id === preferredSourceId)
+    if (preferred) return preferred
+  }
+
+  if (sources.length === 0) return null
+  if (!prompt) {
+    return sources.find((source) => source.id.startsWith('screen:')) ?? sources[0] ?? null
+  }
+
+  const orderedSources = [
+    ...sources.filter((source) => source.id.startsWith('screen:')),
+    ...sources.filter((source) => !source.id.startsWith('screen:'))
+  ].slice(0, 24)
+  orderedSourcesGlobal = orderedSources
+  const selectedIndex = await showVisualSourcePicker(orderedSources)
+
+  return selectedIndex >= 0 && selectedIndex < orderedSources.length
+    ? orderedSources[selectedIndex]
+    : null
 }
 
 async function shouldGrantRemotePermission(
   permission: string,
-  details?: { mediaTypes?: string[] }
+  details?: { mediaTypes?: string[]; requestingOrigin?: string; requestingUrl?: string }
 ): Promise<boolean> {
-  if (!isRemotePermissionAllowed(permission)) return false
+  const origin = details?.requestingOrigin || details?.requestingUrl
+  if (!isRemotePermissionAllowed(permission, origin)) return false
 
   if (permission === 'media' && process.platform === 'darwin') {
     const mediaTypes = details?.mediaTypes ?? []
@@ -758,9 +961,44 @@ async function shouldGrantRemotePermission(
   return true
 }
 
+async function selectWebAuthnAccount(details: any): Promise<string | null> {
+  const rpId = details?.relyingPartyId
+  const accounts = Array.isArray(details?.accounts) ? details.accounts : []
+
+  if (rpId !== getSparkPasskeyRpId()) {
+    log.warn(`Rejected WebAuthn account selection for unexpected RP ID: ${rpId}`)
+    return null
+  }
+
+  if (accounts.length === 0) return null
+  if (accounts.length === 1) return accounts[0]?.credentialId ?? null
+
+  const labels = accounts.map((account, index) => {
+    const name = account.name || account.displayName || `Passkey ${index + 1}`
+    return `${name}`
+  })
+  const result = await dialog.showMessageBox({
+    type: 'question',
+    title: 'Choose Passkey',
+    message: `Choose a passkey for ${rpId}`,
+    buttons: [...labels, 'Cancel'],
+    cancelId: labels.length,
+    defaultId: 0,
+    noLink: true
+  })
+
+  return result.response >= 0 && result.response < accounts.length
+    ? (accounts[result.response]?.credentialId ?? null)
+    : null
+}
+
 function configureSessionCapture(targetSession: Electron.Session): void {
-  targetSession.setPermissionRequestHandler((_webContents, permission, callback, details) => {
-    shouldGrantRemotePermission(permission, details as any)
+  if (configuredRemoteSessions.has(targetSession)) return
+  configuredRemoteSessions.add(targetSession)
+
+  targetSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    const requestingOrigin = (details as any)?.requestingOrigin || webContents?.getURL?.()
+    shouldGrantRemotePermission(permission, { ...(details as any), requestingOrigin })
       .then(callback)
       .catch((error) => {
         log.warn(`Permission request failed for ${permission}:`, error)
@@ -768,15 +1006,25 @@ function configureSessionCapture(targetSession: Electron.Session): void {
       })
   })
 
-  targetSession.setPermissionCheckHandler((_webContents, permission) => {
-    return isRemotePermissionAllowed(permission)
+  targetSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+    const origin = requestingOrigin || webContents?.getURL?.()
+    return isRemotePermissionAllowed(permission, origin)
+  })
+
+  targetSession.on('select-webauthn-account', (_event, details, callback) => {
+    selectWebAuthnAccount(details)
+      .then((credentialId) => callback(credentialId ?? undefined))
+      .catch((error) => {
+        log.warn('WebAuthn account selection failed:', error)
+        callback()
+      })
   })
 
   targetSession.setDisplayMediaRequestHandler(
-    async (_request, callback) => {
+    async (request, callback) => {
       try {
         const sources = await getDesktopCaptureSources()
-        const video = sources.find((source) => source.id.startsWith('screen:')) ?? sources[0]
+        const video = await selectDesktopCaptureSource(sources, undefined, true)
         if (!video) {
           callback({})
           return
@@ -784,7 +1032,7 @@ function configureSessionCapture(targetSession: Electron.Session): void {
 
         callback({
           video,
-          audio: 'loopback'
+          audio: request.audioRequested ? 'loopback' : undefined
         })
       } catch (error) {
         log.warn('Display media request failed:', error)
@@ -1733,6 +1981,7 @@ if (!gotTheLock) {
       app.dock.setIcon(dockIcon)
     }
     electronApp.setAppUserModelId(BRAND.appId)
+    configureWebAuthnSupport()
 
     // ─── GPU Process Crash Recovery ──────────────────
     // If the GPU process exits fatally (e.g. sandbox init failure on
@@ -1833,7 +2082,7 @@ if (!gotTheLock) {
       if (contents.getType() === 'webview') {
         // ── Popups (target="_blank" links) → open in default browser ──
         contents.setWindowOpenHandler(({ url }) => {
-          if (isOriginAllowedInWebview(url, contents.getURL())) {
+          if (!shouldOpenWebviewUrlExternally(url, contents.getURL())) {
             return { action: 'allow' }
           }
           openUrl(url)
@@ -1843,13 +2092,13 @@ if (!gotTheLock) {
         // ── In-page navigation to a different origin → open externally ──
         // This catches regular link clicks (no target) that would navigate
         // the webview away from the Open WebUI instance.
-        contents.on('will-navigate', (event, url) => {
+        const maybeOpenWebviewUrlExternally = (event: Electron.Event, url: string) => {
           try {
             const currentOrigin = new URL(contents.getURL()).origin
             const targetOrigin = new URL(url).origin
             if (
               targetOrigin !== currentOrigin &&
-              !isOriginAllowedInWebview(url, contents.getURL())
+              shouldOpenWebviewUrlExternally(url, contents.getURL())
             ) {
               event.preventDefault()
               openUrl(url)
@@ -1857,7 +2106,9 @@ if (!gotTheLock) {
           } catch {
             // Malformed URL — let it through so Chromium can handle/reject it
           }
-        })
+        }
+        contents.on('will-navigate', maybeOpenWebviewUrlExternally)
+        contents.on('will-redirect', maybeOpenWebviewUrlExternally)
 
         // ── Native right-click context menu (#161) ──────────────────
         // Electron <webview> guests don't show a context menu by default,
@@ -1909,6 +2160,43 @@ if (!gotTheLock) {
 
           if (menuItems.length > 0) {
             Menu.buildFromTemplate(menuItems).popup()
+          }
+        })
+
+        contents.on('select-media-source', async (event, sources) => {
+          event.preventDefault()
+
+          if (!sources || sources.length === 0) {
+            if (typeof event.callback === 'function') event.callback([])
+            return
+          }
+
+          try {
+            const capturerSources = await getDesktopCaptureSources({
+              width: 320,
+              height: 180
+            })
+            orderedSourcesGlobal = capturerSources
+            const selectedIndex = await showVisualSourcePicker(capturerSources)
+
+            if (selectedIndex >= 0 && selectedIndex < capturerSources.length) {
+              const selected = capturerSources[selectedIndex]
+              const matchedSource = sources.find(
+                (s: any) => s.id === selected.id || s.name === selected.name
+              )
+              if (matchedSource) {
+                if (typeof event.callback === 'function') event.callback([matchedSource])
+              } else if (sources.length > 0) {
+                if (typeof event.callback === 'function') event.callback([sources[0]])
+              } else {
+                if (typeof event.callback === 'function') event.callback([])
+              }
+            } else {
+              if (typeof event.callback === 'function') event.callback([])
+            }
+          } catch (err) {
+            log.warn('select-media-source handler error:', err)
+            if (typeof event.callback === 'function') event.callback([])
           }
         })
       }
@@ -2013,6 +2301,7 @@ if (!gotTheLock) {
           return sources.map((source) => ({
             id: source.id,
             name: source.name,
+            type: getDesktopCaptureSourceType(source),
             displayId: source.display_id,
             thumbnail: source.thumbnail?.isEmpty() ? null : source.thumbnail.toDataURL()
           }))
@@ -2022,14 +2311,13 @@ if (!gotTheLock) {
           const height = Math.min(Math.max(Number(request.payload?.height ?? 1080), 180), 2160)
           const sources = await getDesktopCaptureSources({ width, height })
           const sourceId = String(request.payload?.sourceId ?? '')
-          const source =
-            sources.find((item) => item.id === sourceId) ??
-            sources.find((item) => item.id.startsWith('screen:')) ??
-            sources[0]
+          const shouldPrompt = request.payload?.prompt !== false && !sourceId
+          const source = await selectDesktopCaptureSource(sources, sourceId, shouldPrompt)
           if (!source || source.thumbnail?.isEmpty()) return null
           return {
             id: source.id,
             name: source.name,
+            type: getDesktopCaptureSourceType(source),
             displayId: source.display_id,
             dataUrl: source.thumbnail.toDataURL()
           }
@@ -2642,6 +2930,29 @@ if (!gotTheLock) {
         title: 'Voice Input Error',
         body: message || 'An unknown error occurred with voice input.'
       }).show()
+    })
+
+    // Source Picker
+    ipcMain.handle('source-picker:select', (_event, sourceId: string) => {
+      if (sourcePickerWindow && !sourcePickerWindow.isDestroyed()) {
+        sourcePickerWindow.close()
+      }
+      if (sourcePickerResolve) {
+        const sources = orderedSourcesGlobal
+        const index = sources.findIndex((s) => s.id === sourceId)
+        sourcePickerResolve(index >= 0 ? index : -1)
+        sourcePickerResolve = null
+      }
+    })
+
+    ipcMain.handle('source-picker:cancel', () => {
+      if (sourcePickerWindow && !sourcePickerWindow.isDestroyed()) {
+        sourcePickerWindow.close()
+      }
+      if (sourcePickerResolve) {
+        sourcePickerResolve(-1)
+        sourcePickerResolve = null
+      }
     })
 
     // Open Terminal

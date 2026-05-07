@@ -16,7 +16,8 @@ export default defineConfig({
           index: resolve(__dirname, 'src/preload/index.ts'),
           'content-preload': resolve(__dirname, 'src/preload/content-preload.ts'),
           'spotlight-preload': resolve(__dirname, 'src/preload/spotlight-preload.ts'),
-          'voice-input-preload': resolve(__dirname, 'src/preload/voice-input-preload.ts')
+          'voice-input-preload': resolve(__dirname, 'src/preload/voice-input-preload.ts'),
+          'source-picker-preload': resolve(__dirname, 'src/preload/source-picker-preload.ts')
         }
       }
     }
@@ -27,7 +28,8 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
           spotlight: resolve(__dirname, 'src/renderer/spotlight.html'),
-          'voice-input': resolve(__dirname, 'src/renderer/voice-input.html')
+          'voice-input': resolve(__dirname, 'src/renderer/voice-input.html'),
+          'source-picker': resolve(__dirname, 'src/renderer/source-picker.html')
         }
       }
     },

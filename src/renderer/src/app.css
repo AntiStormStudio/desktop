@@ -155,12 +155,27 @@ html.dark.glass-enabled .active-tab {
 .tab-strip {
   height: 100%;
   padding-left: 8px;
+  scroll-padding-inline: 8px;
 }
 
 .browser-tab {
-  width: 200px;
+  flex: 1 1 var(--tab-basis, 160px);
+  width: auto;
+  min-width: var(--tab-min-width, 96px);
+  max-width: 220px;
   user-select: none;
   -webkit-app-region: no-drag;
+}
+
+.browser-tab[data-compact='true'] {
+  gap: 4px;
+  padding-left: 7px;
+  padding-right: 5px;
+}
+
+.browser-tab[data-compact='true'] .tab-status-dot,
+.browser-tab[data-compact='true'] .tab-refresh-button {
+  display: none;
 }
 
 .browser-tab[data-active='true'] .tab-title {

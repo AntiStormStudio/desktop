@@ -68,6 +68,16 @@
 
   const getConnection = (id: string) => ($connections ?? []).find((conn) => conn.id === id)
 
+  const getDefaultRemoteConnection = () => {
+    const configuredDefault = getConnection($config?.defaultConnectionId ?? '')
+    if (configuredDefault?.type === 'remote') return configuredDefault
+
+    const profileDefault = remoteConnections.find(
+      (conn) => conn.url === APP_PROFILE.features.defaultRemoteOpenWebUI
+    )
+    return profileDefault ?? remoteConnections[0] ?? null
+  }
+
   const createTab = (connectionId: string, url: string, title?: string) => {
     const conn = getConnection(connectionId)
     const tab: BrowserTab = {
@@ -115,7 +125,12 @@
     if (nextTab) {
       selectTab(nextTab.id)
     } else {
-      disconnect()
+      const defaultRemote = getDefaultRemoteConnection()
+      if (defaultRemote) {
+        createTab(defaultRemote.id, defaultRemote.url)
+      } else {
+        disconnect()
+      }
     }
   }
 
@@ -170,7 +185,7 @@
   }
 
   const navigateTab = (tabId: string, nextUrl: string) => {
-    updateTab(tabId, { initialUrl: nextUrl, url: nextUrl })
+    updateTab(tabId, { url: nextUrl })
     requestAnimationFrame(() => {
       const wv = document.querySelector(`webview[data-tab-id="${tabId}"]`) as any
       if (!wv || typeof wv.loadURL !== 'function') return
@@ -607,7 +622,6 @@
         const tab = browserTabs.find((item) => item.connectionId === connId)
         if (tab) {
           selectTab(tab.id)
-          navigateTab(tab.id, incomingUrl)
         } else {
           createTab(connId, incomingUrl)
         }
