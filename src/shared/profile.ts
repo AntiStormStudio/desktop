@@ -55,6 +55,8 @@ export const APP_PROFILE = {
       "app.openSettings",
       "system.platform",
       "system.selectFolder",
+      "media.getDisplaySources",
+      "media.captureScreen",
       "resources.openPath",
       "resources.selectFile",
       "terminal.local.info",

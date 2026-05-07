@@ -140,7 +140,8 @@ export const installOpenTerminal = async (
 }
 
 export const startOpenTerminal = async (
-  port: number | null = null
+  port: number | null = null,
+  onStatus?: (status: string) => void
 ): Promise<{ url: string; apiKey: string; pid: number }> => {
   if (!lock.acquire()) {
     return { url, apiKey, pid }
@@ -152,7 +153,7 @@ export const startOpenTerminal = async (
     if (!isPackageInstalled('open-terminal')) {
       log.info('open-terminal not installed, attempting install...')
       const config = await getConfig()
-      await installOpenTerminal(config?.openTerminal?.version || undefined)
+      await installOpenTerminal(config?.openTerminal?.version || undefined, onStatus)
     }
   } catch (err) {
     lock.release()

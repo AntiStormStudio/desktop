@@ -25,6 +25,8 @@
   let browserTabs = $state<BrowserTab[]>([])
   let draggingTabId = $state('')
   let cleanupDataListener: (() => void) | null = null
+  let cleanupWindowStateListener: (() => void) | null = null
+  let windowMaximized = $state(false)
 
   const activeTab = $derived(browserTabs.find((tab) => tab.id === activeTabId) ?? null)
 
@@ -40,6 +42,15 @@
         settingsOpen = true
       }
     })
+    if ($appInfo?.platform === 'win32') {
+      const windowState = window.electronAPI.getWindowState?.()
+      windowState?.then((state: any) => {
+        windowMaximized = Boolean(state?.isMaximized)
+      })
+      cleanupWindowStateListener = window.electronAPI.onWindowState?.((state: any) => {
+        windowMaximized = Boolean(state?.isMaximized)
+      })
+    }
     setTimeout(() => {
       visible = true
     }, 50)
@@ -47,6 +58,7 @@
 
   onDestroy(() => {
     cleanupDataListener?.()
+    cleanupWindowStateListener?.()
   })
 
   const toggleSidebar = () => {
@@ -325,6 +337,74 @@
               />
             </svg>
           </button>
+        {/if}
+        {#if $appInfo?.platform === 'win32'}
+          <div class="window-controls no-drag ml-1 flex items-center gap-0.5">
+            <button
+              class="window-control-button h-7 w-9 flex items-center justify-center rounded-md border-none bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-55 hover:opacity-90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+              onclick={() => window.electronAPI.minimizeWindow?.()}
+              aria-label="Minimize"
+              use:tooltip={'Minimize'}
+            >
+              <svg
+                class="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+              >
+                <path stroke-linecap="round" d="M6 12h12" />
+              </svg>
+            </button>
+            <button
+              class="window-control-button h-7 w-9 flex items-center justify-center rounded-md border-none bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-55 hover:opacity-90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+              onclick={async () => {
+                const state = await window.electronAPI.toggleMaximizeWindow?.()
+                windowMaximized = Boolean(state?.isMaximized)
+              }}
+              aria-label={windowMaximized ? 'Restore' : 'Maximize'}
+              use:tooltip={windowMaximized ? 'Restore' : 'Maximize'}
+            >
+              {#if windowMaximized}
+                <svg
+                  class="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                >
+                  <path stroke-linejoin="round" d="M8 8h9v9H8z" />
+                  <path stroke-linejoin="round" d="M6 15H5V5h10v1" />
+                </svg>
+              {:else}
+                <svg
+                  class="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.7"
+                >
+                  <path stroke-linejoin="round" d="M6.5 6.5h11v11h-11z" />
+                </svg>
+              {/if}
+            </button>
+            <button
+              class="window-control-button close-button h-7 w-9 flex items-center justify-center rounded-md border-none bg-transparent text-[#1d1d1f] dark:text-[#fafafa] opacity-55 hover:opacity-100 hover:bg-red-500 hover:text-white"
+              onclick={() => window.electronAPI.closeWindow?.()}
+              aria-label={$i18n.t('common.close')}
+              use:tooltip={$i18n.t('common.close')}
+            >
+              <svg
+                class="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="1.8"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 7l10 10M17 7L7 17" />
+              </svg>
+            </button>
+          </div>
         {/if}
       </div>
     </div>

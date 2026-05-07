@@ -41,7 +41,6 @@
         type: 'remote',
         url: u
       })
-      connections.set(await window.electronAPI.getConnections())
       config.set(await window.electronAPI.getConfig())
       url = ''
       name = ''
@@ -60,10 +59,8 @@
   }
   const remove = async (id: string) => {
     await window.electronAPI.removeConnection(id)
-    const conns = await window.electronAPI.getConnections()
-    connections.set(conns)
     config.set(await window.electronAPI.getConfig())
-    if (conns.length === 0) appState.set('setup')
+    if (($connections ?? []).length === 0) appState.set('setup')
   }
 </script>
 

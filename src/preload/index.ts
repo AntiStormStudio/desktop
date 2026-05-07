@@ -65,6 +65,16 @@ const api = {
   invokeDesktopBridge: (request: any) => ipcRenderer.invoke('desktop:bridge:invoke', request),
   detachTab: (tab: { connectionId: string; url: string; title?: string }) =>
     ipcRenderer.invoke('tabs:detach', tab),
+  minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
+  toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggleMaximize'),
+  closeWindow: () => ipcRenderer.invoke('window:close'),
+  getWindowState: () => ipcRenderer.invoke('window:getState'),
+  onWindowState: (callback: (state: { isMaximized: boolean; isFullScreen: boolean }) => void) => {
+    const handler = (_: any, state: { isMaximized: boolean; isFullScreen: boolean }): void =>
+      callback(state)
+    ipcRenderer.on('window:state', handler)
+    return () => ipcRenderer.removeListener('window:state', handler)
+  },
   getDiskSpace: () => ipcRenderer.invoke('system:diskSpace'),
   getLaunchAtLogin: () => ipcRenderer.invoke('app:launchAtLogin:get'),
   setLaunchAtLogin: (enabled: boolean) => ipcRenderer.invoke('app:launchAtLogin:set', enabled),

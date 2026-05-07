@@ -110,14 +110,25 @@ if (process.platform === 'linux') {
   // to work (the portal is enabled by default in Chromium 134+ / Electron 33+).
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
 
-  // Disable GPU acceleration entirely on Linux.  This prevents the GPU
-  // process from spawning, which avoids shared-memory allocation failures
-  // in /dev/shm or /tmp that crash the renderer on Ubuntu 24.04+, certain
-  // Wayland compositors, and AppArmor-restricted environments.  The lighter
-  // --disable-gpu-compositing flag is insufficient because the GPU process
-  // still starts and attempts shared-memory IPC.  Users confirmed that
-  // --disable-gpu resolves both the crash and grey/blank screen (#119, #157).
-  app.commandLine.appendSwitch('disable-gpu')
+  // Force software GL rendering via SwiftShader.  The out-of-process GPU
+  // crashes on Ubuntu 24.04+, certain Wayland compositors, and AppArmor-
+  // restricted environments due to shared-memory allocation failures in
+  // /dev/shm or /tmp (#119, #157).
+  //
+  // --disable-gpu kills the display compositor so <webview> guest surfaces
+  // are never painted (#178).  --in-process-gpu breaks <webview> guest
+  // compositing entirely (blank webviews on all Linux).
+  //
+  // SwiftShader keeps the GPU process out-of-process (required for
+  // <webview> compositing) while using software rendering to avoid
+  // driver-level crashes.
+  app.commandLine.appendSwitch('use-gl', 'angle')
+  app.commandLine.appendSwitch('use-angle', 'swiftshader')
+
+  // Disable the GPU sandbox — the sandbox setup triggers shared-memory
+  // allocation failures in /dev/shm.  The browser process is already
+  // un-sandboxed (--no-sandbox above).
+  app.commandLine.appendSwitch('disable-gpu-sandbox')
 }
 
 // ─── GPU Crash Recovery ─────────────────────────────────
@@ -137,6 +148,7 @@ const DESKTOP_MAGIC_AUTH_HOST = 'auth'
 const DESKTOP_LOCAL_TERMINAL_NAME = '本机终端'
 const REMOTE_PERMISSION_ALLOWLIST = new Set<string>([
   ...APP_PROFILE.remotePermissions.allowed,
+  'display-capture',
   ...(FEATURES.allowRemotePasskeys
     ? ['publickey-credentials-create', 'publickey-credentials-get']
     : [])
@@ -335,6 +347,9 @@ function createSpotlightWindow(): BrowserWindow {
     hasShadow: false,
     show: false,
     focusable: true,
+    // Ensure the window appears on whichever Space/desktop the user is
+    // currently on, rather than pulling them back to the primary Space.
+    visibleOnAllWorkspaces: true,
     icon: path.join(__dirname, 'assets/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/spotlight-preload.js'),
@@ -371,8 +386,12 @@ function createSpotlightWindow(): BrowserWindow {
 }
 
 function showAndFocusSpotlight(win: BrowserWindow, initialQuery?: string): void {
+  // On macOS, avoid `app.focus({ steal: true })` — it activates the whole
+  // application and causes the window manager to switch back to whichever
+  // Space the app was originally launched on (#179).  Instead, ensure the
+  // window is visible on all workspaces and focus it directly.
   if (process.platform === 'darwin') {
-    app.focus({ steal: true })
+    win.setVisibleOnAllWorkspaces(true, { skipTransformProcessType: true })
   }
 
   // Reposition fullscreen window to the active display
@@ -533,21 +552,12 @@ async function toggleVoiceInput(): Promise<void> {
 
   // Pre-flight: check a connection is configured
   try {
-    const config = await getConfig()
-    if (!config.defaultConnectionId || config.connections.length === 0) {
+    const conn = await getDefaultConnection()
+    if (!conn) {
       log.warn('Voice input: no connection configured')
       new Notification({
         title: 'Voice Input',
         body: 'No connection configured. Set up a connection in Settings before using voice input.'
-      }).show()
-      return
-    }
-    const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
-    if (!conn) {
-      log.warn('Voice input: default connection not found')
-      new Notification({
-        title: 'Voice Input',
-        body: 'Default connection not found. Check your connection settings.'
       }).show()
       return
     }
@@ -580,8 +590,8 @@ async function toggleVoiceInput(): Promise<void> {
 async function toggleCall(): Promise<void> {
   // Pre-flight: check a connection is configured
   try {
-    const config = await getConfig()
-    if (!config.defaultConnectionId || config.connections.length === 0) {
+    const conn = await getDefaultConnection()
+    if (!conn) {
       log.warn('Call: no connection configured')
       new Notification({
         title: 'Call',
@@ -589,24 +599,8 @@ async function toggleCall(): Promise<void> {
       }).show()
       return
     }
-    const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
-    if (!conn) {
-      log.warn('Call: default connection not found')
-      new Notification({
-        title: 'Call',
-        body: 'Default connection not found. Check your connection settings.'
-      }).show()
-      return
-    }
 
-    let url = conn.url
-    if (conn.type === 'local' && SERVER_URL) {
-      url = SERVER_URL
-    }
-    if (url.startsWith('http://0.0.0.0')) {
-      url = url.replace('http://0.0.0.0', 'http://localhost')
-    }
-
+    const url = resolveConnectionUrl(conn)
     sendToRenderer('call', { connectionId: conn.id, url })
 
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -692,6 +686,115 @@ function applyGlassEffect(win: BrowserWindow, enabled: boolean): void {
   win.setBackgroundColor(enabled ? '#00000000' : '#f5f5f7')
 }
 
+function getWindowState(win: BrowserWindow): { isMaximized: boolean; isFullScreen: boolean } {
+  return {
+    isMaximized: win.isMaximized(),
+    isFullScreen: win.isFullScreen()
+  }
+}
+
+function emitWindowState(win: BrowserWindow): void {
+  if (win.isDestroyed()) return
+  win.webContents.send('window:state', getWindowState(win))
+}
+
+function trackWindowState(win: BrowserWindow): void {
+  const notify = () => emitWindowState(win)
+  win.on('maximize', notify)
+  win.on('unmaximize', notify)
+  win.on('enter-full-screen', notify)
+  win.on('leave-full-screen', notify)
+  win.on('restore', notify)
+}
+
+async function ensureScreenCaptureAccess(): Promise<boolean> {
+  if (process.platform !== 'darwin') return true
+
+  const status = systemPreferences.getMediaAccessStatus('screen' as any)
+  if (status !== 'denied' && status !== 'restricted') return true
+
+  new Notification({
+    title: 'Screen Recording Permission Required',
+    body: `${BRAND.name} needs Screen Recording access before sharing the screen.`
+  }).show()
+  shell.openExternal(
+    'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
+  )
+  return false
+}
+
+async function getDesktopCaptureSources(
+  thumbnailSize: { width: number; height: number } = { width: 320, height: 180 }
+): Promise<Electron.DesktopCapturerSource[]> {
+  if (!(await ensureScreenCaptureAccess())) return []
+  return desktopCapturer.getSources({
+    types: ['screen', 'window'],
+    thumbnailSize
+  })
+}
+
+async function shouldGrantRemotePermission(
+  permission: string,
+  details?: { mediaTypes?: string[] }
+): Promise<boolean> {
+  if (!isRemotePermissionAllowed(permission)) return false
+
+  if (permission === 'media' && process.platform === 'darwin') {
+    const mediaTypes = details?.mediaTypes ?? []
+    const needsCamera = mediaTypes.includes('video')
+    const needsMicrophone = mediaTypes.includes('audio')
+
+    if (needsCamera && systemPreferences.getMediaAccessStatus('camera') !== 'granted') {
+      const granted = await systemPreferences.askForMediaAccess('camera')
+      if (!granted) return false
+    }
+
+    if (needsMicrophone && systemPreferences.getMediaAccessStatus('microphone') !== 'granted') {
+      const granted = await systemPreferences.askForMediaAccess('microphone')
+      if (!granted) return false
+    }
+  }
+
+  return true
+}
+
+function configureSessionCapture(targetSession: Electron.Session): void {
+  targetSession.setPermissionRequestHandler((_webContents, permission, callback, details) => {
+    shouldGrantRemotePermission(permission, details as any)
+      .then(callback)
+      .catch((error) => {
+        log.warn(`Permission request failed for ${permission}:`, error)
+        callback(false)
+      })
+  })
+
+  targetSession.setPermissionCheckHandler((_webContents, permission) => {
+    return isRemotePermissionAllowed(permission)
+  })
+
+  targetSession.setDisplayMediaRequestHandler(
+    async (_request, callback) => {
+      try {
+        const sources = await getDesktopCaptureSources()
+        const video = sources.find((source) => source.id.startsWith('screen:')) ?? sources[0]
+        if (!video) {
+          callback({})
+          return
+        }
+
+        callback({
+          video,
+          audio: 'loopback'
+        })
+      } catch (error) {
+        log.warn('Display media request failed:', error)
+        callback({})
+      }
+    },
+    { useSystemPicker: true }
+  )
+}
+
 function createMainWindow(show = true): void {
   const saved = CONFIG?.windowBounds
   const glassEnabled = CONFIG?.glassEffect !== false
@@ -703,7 +806,7 @@ function createMainWindow(show = true): void {
     title: BRAND.name,
     icon: path.join(__dirname, 'assets/icon.png'),
     show: false,
-    titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
+    titleBarStyle: 'hidden',
     trafficLightPosition: { x: 10, y: 10 },
     autoHideMenuBar: true,
     backgroundColor: glassEnabled ? '#00000000' : '#f5f5f7',
@@ -714,7 +817,7 @@ function createMainWindow(show = true): void {
     ...(process.platform === 'win32' && glassEnabled
       ? { backgroundMaterial: 'acrylic' as const }
       : {}),
-    ...(process.platform === 'win32' ? { frame: true } : {}),
+    ...(process.platform === 'win32' ? { frame: false } : {}),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -731,6 +834,7 @@ function createMainWindow(show = true): void {
   }
 
   mainWindow = new BrowserWindow(windowOpts)
+  trackWindowState(mainWindow)
   applyGlassEffect(mainWindow, glassEnabled)
   if (process.platform !== 'darwin') {
     mainWindow.setIcon(icon)
@@ -752,6 +856,7 @@ function createMainWindow(show = true): void {
   if (show) {
     mainWindow.on('ready-to-show', () => {
       mainWindow?.show()
+      if (mainWindow) emitWindowState(mainWindow)
     })
   }
 
@@ -799,10 +904,10 @@ function createContentWindow(url: string, connectionId: string, title = BRAND.na
     icon: path.join(__dirname, 'assets/icon.png'),
     show: false,
     title,
-    titleBarStyle: process.platform === 'win32' ? 'default' : 'hidden',
+    titleBarStyle: 'hidden',
     trafficLightPosition: { x: 16, y: 16 },
     autoHideMenuBar: true,
-    ...(process.platform === 'win32' ? { frame: true } : {}),
+    ...(process.platform === 'win32' ? { frame: false } : {}),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       sandbox: true,
@@ -811,19 +916,10 @@ function createContentWindow(url: string, connectionId: string, title = BRAND.na
       partition: `persist:connection-${connectionId}`
     }
   })
+  trackWindowState(contentWindow)
 
-  // Enable media capture
-  session
-    .fromPartition(`persist:connection-${connectionId}`)
-    .setPermissionRequestHandler((_webContents, permission, callback) => {
-      const allowedPermissions = Array.from(REMOTE_PERMISSION_ALLOWLIST)
-      callback(allowedPermissions.includes(permission))
-    })
-  session
-    .fromPartition(`persist:connection-${connectionId}`)
-    .setPermissionCheckHandler((_webContents, permission) => {
-      return isRemotePermissionAllowed(permission)
-    })
+  // Enable media and display capture for detached webview sessions.
+  configureSessionCapture(session.fromPartition(`persist:connection-${connectionId}`))
 
   contentWindow.on('ready-to-show', () => {
     contentWindow.show()
@@ -868,7 +964,8 @@ function createContentWindow(url: string, connectionId: string, title = BRAND.na
 const updateTray = () => {
   if (!tray || !CONFIG) return
 
-  const connectionItems = (CONFIG.connections || []).map((conn) => ({
+  // Remote connections from config
+  const remoteItems = (CONFIG.connections || []).map((conn) => ({
     label: `${conn.id === CONFIG.defaultConnectionId ? '★ ' : ''}${conn.name}`,
     sublabel: conn.url,
     click: async () => {
@@ -876,6 +973,22 @@ const updateTray = () => {
       if (result) sendToRenderer('connection:open', result)
     }
   }))
+
+  // Virtual local connection (when package is installed)
+  const localItem = isPackageInstalled('open-webui')
+    ? [
+        {
+          label: `${CONFIG.defaultConnectionId === 'local' ? '★ ' : ''}Open WebUI (Local)`,
+          sublabel: SERVER_URL || `http://127.0.0.1:${CONFIG.localServer?.port ?? 8080}`,
+          click: async () => {
+            const result = await connectTo(buildLocalConnection())
+            if (result) sendToRenderer('connection:open', result)
+          }
+        }
+      ]
+    : []
+
+  const allItems = [...localItem, ...remoteItems]
 
   const trayMenuTemplate = [
     {
@@ -886,8 +999,8 @@ const updateTray = () => {
       }
     },
     { type: 'separator' },
-    ...(connectionItems.length > 0
-      ? [{ label: 'Connections', enabled: false }, ...connectionItems, { type: 'separator' }]
+    ...(allItems.length > 0
+      ? [{ label: 'Connections', enabled: false }, ...allItems, { type: 'separator' }]
       : []),
     ...(SERVER_STATUS === 'started' && SERVER_URL
       ? [
@@ -916,6 +1029,38 @@ const updateTray = () => {
 }
 
 // ─── Connection Management ──────────────────────────────
+
+// Build a virtual local connection object from current config.
+// The local server is never stored in the connections array — it's
+// implicit when the open-webui package is installed.
+const buildLocalConnection = (): Connection => {
+  const port = CONFIG?.localServer?.port ?? 8080
+  return {
+    id: 'local',
+    name: 'Open WebUI',
+    type: 'local',
+    url: SERVER_URL || `http://127.0.0.1:${port}`
+  }
+}
+
+// Resolve the default connection.  'local' is a virtual ID that
+// synthesises a Connection on the fly; everything else is looked
+// up in the persisted connections array (remote only).
+const getDefaultConnection = async (): Promise<Connection | null> => {
+  const config = await getConfig()
+  if (!config.defaultConnectionId) return null
+  if (config.defaultConnectionId === 'local') return buildLocalConnection()
+  return config.connections.find((c) => c.id === config.defaultConnectionId) ?? null
+}
+
+// Resolve the URL for a connection, preferring the live SERVER_URL
+// for local connections and normalising 0.0.0.0 to localhost.
+const resolveConnectionUrl = (conn: Connection): string => {
+  let url = conn.url
+  if (conn.type === 'local' && SERVER_URL) url = SERVER_URL
+  if (url.startsWith('http://0.0.0.0')) url = url.replace('http://0.0.0.0', 'http://localhost')
+  return url
+}
 
 const connectTo = async (connection: Connection) => {
   let url = connection.url
@@ -979,6 +1124,27 @@ const startServerHandler = async (): Promise<boolean> => {
 
   try {
     CONFIG = await getConfig()
+
+    // Auto-update the open-webui pip package to latest before starting.
+    // Only when autoUpdate is enabled (default) and no version pin is set.
+    const autoUpdate = CONFIG?.localServer?.autoUpdate !== false
+    const versionPin = CONFIG?.localServer?.version
+    if (autoUpdate && !versionPin && isPackageInstalled('open-webui')) {
+      try {
+        log.info('[server] Auto-updating open-webui package to latest…')
+        sendToRenderer('status:install', 'Updating Open WebUI…')
+        await installPackage('open-webui', undefined, (status: string) => {
+          sendToRenderer('status:install', status)
+        })
+        sendToRenderer('status:install', '')
+        log.info('[server] Auto-update complete')
+      } catch (e) {
+        // Non-fatal — start the existing version if upgrade fails
+        log.warn('[server] Auto-update failed, starting existing version:', e)
+        sendToRenderer('status:install', '')
+      }
+    }
+
     const { url, pid } = await startServer(
       CONFIG?.localServer?.serveOnLocalNetwork ?? false,
       CONFIG?.localServer?.port ?? null
@@ -1623,12 +1789,7 @@ if (!gotTheLock) {
     session.defaultSession.setCertificateVerifyProc((_request, callback) => {
       callback(0) // 0 = verified/trusted
     })
-    session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-      callback(isRemotePermissionAllowed(permission))
-    })
-    session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
-      return isRemotePermissionAllowed(permission)
-    })
+    configureSessionCapture(session.defaultSession)
 
     // Webviews use partitioned sessions (persist:connection-*). Each
     // new partition's session also needs to trust all certs.
@@ -1637,14 +1798,7 @@ if (!gotTheLock) {
         callback(0)
       })
 
-      // Grant media / notification permissions for webview partition sessions
-      // so that auth flows, media capture, and notifications work correctly.
-      newSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-        callback(isRemotePermissionAllowed(permission))
-      })
-      newSession.setPermissionCheckHandler((_webContents, permission) => {
-        return isRemotePermissionAllowed(permission)
-      })
+      configureSessionCapture(newSession)
     })
 
     app.on('browser-window-created', (_, window) => {
@@ -1779,6 +1933,28 @@ if (!gotTheLock) {
       return `file://${join(__dirname, '../preload/content-preload.js')}`
     })
 
+    ipcMain.handle('window:minimize', (event) => {
+      BrowserWindow.fromWebContents(event.sender)?.minimize()
+    })
+
+    ipcMain.handle('window:toggleMaximize', (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      if (!win) return null
+      if (win.isMaximized()) win.unmaximize()
+      else win.maximize()
+      emitWindowState(win)
+      return getWindowState(win)
+    })
+
+    ipcMain.handle('window:close', (event) => {
+      BrowserWindow.fromWebContents(event.sender)?.close()
+    })
+
+    ipcMain.handle('window:getState', (event) => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      return win ? getWindowState(win) : { isMaximized: false, isFullScreen: false }
+    })
+
     ipcMain.handle('app:defaultDataPath', () => {
       return join(getUserDataPath(), 'data')
     })
@@ -1831,6 +2007,32 @@ if (!gotTheLock) {
             properties: ['openDirectory', 'createDirectory']
           })
           return result.canceled ? null : result.filePaths[0]
+        }
+        case 'media.getDisplaySources': {
+          const sources = await getDesktopCaptureSources()
+          return sources.map((source) => ({
+            id: source.id,
+            name: source.name,
+            displayId: source.display_id,
+            thumbnail: source.thumbnail?.isEmpty() ? null : source.thumbnail.toDataURL()
+          }))
+        }
+        case 'media.captureScreen': {
+          const width = Math.min(Math.max(Number(request.payload?.width ?? 1920), 320), 3840)
+          const height = Math.min(Math.max(Number(request.payload?.height ?? 1080), 180), 2160)
+          const sources = await getDesktopCaptureSources({ width, height })
+          const sourceId = String(request.payload?.sourceId ?? '')
+          const source =
+            sources.find((item) => item.id === sourceId) ??
+            sources.find((item) => item.id.startsWith('screen:')) ??
+            sources[0]
+          if (!source || source.thumbnail?.isEmpty()) return null
+          return {
+            id: source.id,
+            name: source.name,
+            displayId: source.display_id,
+            dataUrl: source.thumbnail.toDataURL()
+          }
         }
         case 'resources.selectFile': {
           if (!FEATURES.allowRemoteLocalResources) {
@@ -2020,6 +2222,18 @@ if (!gotTheLock) {
           sendToRenderer('status:install', status)
         }).catch((e) => log.warn('open-terminal install failed (non-fatal):', e))
         sendToRenderer('status:package', true)
+        // Notify renderer of install state change
+        sendToRenderer('packages:changed', {
+          'open-webui': isPackageInstalled('open-webui')
+        })
+        // Auto-set local as default if no default configured
+        const cfg = await getConfig()
+        if (!cfg.defaultConnectionId) {
+          cfg.defaultConnectionId = 'local'
+          await setConfig(cfg)
+          CONFIG = cfg
+        }
+        updateTray()
         return true
       } catch (error) {
         sendToRenderer('status:package', false)
@@ -2054,7 +2268,7 @@ if (!gotTheLock) {
       reachable: SERVER_REACHABLE
     }))
 
-    // Connections
+    // Connections (remote only — local is virtual)
     ipcMain.handle('connections:list', async () => {
       const config = await getConfig()
       return config.connections
@@ -2075,6 +2289,7 @@ if (!gotTheLock) {
       await setConfig(config)
       CONFIG = config
       updateTray()
+      sendToRenderer('connections:changed', config.connections)
       return config.connections
     })
 
@@ -2082,11 +2297,12 @@ if (!gotTheLock) {
       const config = await getConfig()
       config.connections = config.connections.filter((c) => c.id !== id)
       if (config.defaultConnectionId === id) {
-        config.defaultConnectionId = config.connections[0]?.id || null
+        config.defaultConnectionId = config.connections[0]?.id || 'local'
       }
       await setConfig(config)
       CONFIG = config
       updateTray()
+      sendToRenderer('connections:changed', config.connections)
       return config.connections
     })
 
@@ -2100,6 +2316,7 @@ if (!gotTheLock) {
           await setConfig(config)
           CONFIG = config
           updateTray()
+          sendToRenderer('connections:changed', config.connections)
         }
         return config.connections
       }
@@ -2114,6 +2331,10 @@ if (!gotTheLock) {
     })
 
     ipcMain.handle('connections:connect', async (_event, id: string) => {
+      // 'local' is a virtual connection — synthesize it
+      if (id === 'local') {
+        return await connectTo(buildLocalConnection())
+      }
       const config = await getConfig()
       const conn = config.connections.find((c) => c.id === id)
       if (conn) {
@@ -2154,26 +2375,14 @@ if (!gotTheLock) {
 
     // Spotlight
     ipcMain.handle('spotlight:submit', async (_event, query: string, images?: string[]) => {
-      const config = await getConfig()
-      if (!config.defaultConnectionId || config.connections.length === 0) {
-        mainWindow?.show()
-        mainWindow?.focus()
-        return
-      }
-      const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
+      const conn = await getDefaultConnection()
       if (!conn) {
         mainWindow?.show()
         mainWindow?.focus()
         return
       }
 
-      let url = conn.url
-      if (conn.type === 'local' && SERVER_URL) {
-        url = SERVER_URL
-      }
-      if (url.startsWith('http://0.0.0.0')) {
-        url = url.replace('http://0.0.0.0', 'http://localhost')
-      }
+      const url = resolveConnectionUrl(conn)
 
       // Build files payload from screenshot images
       const files = images?.map((dataUrl, i) => ({
@@ -2303,21 +2512,11 @@ if (!gotTheLock) {
       'voiceInput:transcribe',
       async (_event, audioBuffer: ArrayBuffer, rendererToken?: string) => {
         try {
-          const config = await getConfig()
-          if (!config.defaultConnectionId || config.connections.length === 0) {
-            throw new Error('No connection configured. Set up a connection in Settings first.')
-          }
-          const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
+          const conn = await getDefaultConnection()
           if (!conn)
-            throw new Error('Default connection not found. Check your connection settings.')
+            throw new Error('No connection configured. Set up a connection in Settings first.')
 
-          let url = conn.url
-          if (conn.type === 'local' && SERVER_URL) {
-            url = SERVER_URL
-          }
-          if (url.startsWith('http://0.0.0.0')) {
-            url = url.replace('http://0.0.0.0', 'http://localhost')
-          }
+          const url = resolveConnectionUrl(conn)
 
           // Use stored auth token (relayed from webview), fall back to renderer-provided or contentWindow
           let token = AUTH_TOKEN || rendererToken || ''
@@ -2410,27 +2609,14 @@ if (!gotTheLock) {
       if (!text?.trim()) return
 
       // Deliver text through the same path as Spotlight
-      const config = await getConfig()
-      if (!config.defaultConnectionId || config.connections.length === 0) {
-        mainWindow?.show()
-        mainWindow?.focus()
-        return
-      }
-      const conn = config.connections.find((c) => c.id === config.defaultConnectionId)
+      const conn = await getDefaultConnection()
       if (!conn) {
         mainWindow?.show()
         mainWindow?.focus()
         return
       }
 
-      let url = conn.url
-      if (conn.type === 'local' && SERVER_URL) {
-        url = SERVER_URL
-      }
-      if (url.startsWith('http://0.0.0.0')) {
-        url = url.replace('http://0.0.0.0', 'http://localhost')
-      }
-
+      const url = resolveConnectionUrl(conn)
       sendToRenderer('query', { query: text.trim(), connectionId: conn.id, url })
 
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -2462,7 +2648,9 @@ if (!gotTheLock) {
     ipcMain.handle('open-terminal:start', async () => {
       try {
         sendToRenderer('status:open-terminal', 'starting')
-        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null)
+        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null, (status) => {
+          sendToRenderer('status:open-terminal-setup', status)
+        })
         sendToRenderer('status:open-terminal', 'started')
         sendToRenderer('open-terminal:ready', result)
         notifyDesktopLocalTerminal('add', result)
@@ -2470,6 +2658,11 @@ if (!gotTheLock) {
         await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: true } })
         CONFIG = await getConfig()
         await publishDesktopLocalTerminalState()
+        sendToRenderer('connections:terminal', {
+          action: 'add',
+          url: result.url,
+          key: result.apiKey
+        })
         return result
       } catch (error) {
         log.error('Failed to start Open Terminal:', error)
@@ -2515,6 +2708,12 @@ if (!gotTheLock) {
         await setConfig({ openTerminal: { ...CONFIG?.openTerminal, enabled: false } })
         CONFIG = await getConfig()
         await publishDesktopLocalTerminalState()
+        if (info.url) {
+          sendToRenderer('connections:terminal', {
+            action: 'remove',
+            url: info.url
+          })
+        }
         return true
       } catch (error) {
         log.error('Failed to stop Open Terminal:', error)
@@ -2555,13 +2754,13 @@ if (!gotTheLock) {
         if (result.url) {
           sendToRenderer('connections:openai', {
             action: 'add',
-            url: `${result.url}/v1`
+            url: `${result.url}/v1`,
+            config: { provider: 'llama.cpp', connection_type: 'local' }
           })
           // Refresh model list after backend registers the endpoint
           setTimeout(() => sendToRenderer('models:refresh'), 1000)
         }
-        await setConfig({ llamaCpp: { ...CONFIG?.llamaCpp, enabled: true } })
-        CONFIG = await getConfig()
+
         return result
       } catch (error) {
         log.error('Failed to start llamacpp:', error)
@@ -2585,8 +2784,7 @@ if (!gotTheLock) {
           // Refresh model list after removing endpoint
           setTimeout(() => sendToRenderer('models:refresh'), 500)
         }
-        await setConfig({ llamaCpp: { ...CONFIG?.llamaCpp, enabled: false } })
-        CONFIG = await getConfig()
+
         return true
       } catch (error) {
         log.error('Failed to stop llamacpp:', error)
@@ -2687,7 +2885,13 @@ if (!gotTheLock) {
       getPackageVersion(packageName)
     )
     ipcMain.handle('package:uninstall', async (_event, packageName: string) => {
-      return uninstallPackage(packageName)
+      const result = uninstallPackage(packageName)
+      // Notify renderer of install state change
+      sendToRenderer('packages:changed', {
+        'open-webui': isPackageInstalled('open-webui')
+      })
+      updateTray()
+      return result
     })
 
     ipcMain.handle('dialog:selectFolder', async () => {
@@ -2763,16 +2967,6 @@ if (!gotTheLock) {
       CONFIG.callShortcut
     )
 
-    // Enable screen capture
-    session.defaultSession.setDisplayMediaRequestHandler(
-      (request, callback) => {
-        desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
-          callback({ video: sources[0], audio: 'loopback' })
-        })
-      },
-      { useSystemPicker: true }
-    )
-
     // Validate stale PIDs from previous crash
     validateOpenTerminalProcess()
     validateLlamaCppProcess()
@@ -2781,7 +2975,9 @@ if (!gotTheLock) {
     if (CONFIG?.openTerminal?.enabled) {
       try {
         sendToRenderer('status:open-terminal', 'starting')
-        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null)
+        const result = await startOpenTerminal(CONFIG?.openTerminal?.port ?? null, (status) => {
+          sendToRenderer('status:open-terminal-setup', status)
+        })
         sendToRenderer('status:open-terminal', 'started')
         sendToRenderer('open-terminal:ready', result)
         notifyDesktopLocalTerminal('add', result)
@@ -2810,12 +3006,23 @@ if (!gotTheLock) {
     const startupProtocolUrl = pendingProtocolUrl || findProtocolUrl(process.argv)
     pendingProtocolUrl = null
 
+    // Migrate legacy local connection entries out of the connections array
+    if (CONFIG.connections.some((c) => c.type === 'local')) {
+      CONFIG.connections = CONFIG.connections.filter((c) => c.type !== 'local')
+      // Preserve 'local' as default if it was the default
+      if (!CONFIG.defaultConnectionId || CONFIG.defaultConnectionId === 'local') {
+        CONFIG.defaultConnectionId = 'local'
+      }
+      await setConfig(CONFIG)
+      log.info('Migrated legacy local connection entry from connections array')
+    }
+
     // Check if launched from a desktop magic link before regular auto-connect.
     if (startupProtocolUrl) {
       createMainWindow()
       await handleProtocolUrl(startupProtocolUrl)
-    } else if (CONFIG.defaultConnectionId && CONFIG.connections.length > 0) {
-      const defaultConn = CONFIG.connections.find((c) => c.id === CONFIG.defaultConnectionId)
+    } else {
+      const defaultConn = await getDefaultConnection()
       if (defaultConn) {
         createMainWindow()
         const result = await connectTo(defaultConn)
@@ -2823,8 +3030,6 @@ if (!gotTheLock) {
       } else {
         createMainWindow()
       }
-    } else {
-      createMainWindow()
     }
 
     // Initialize auto-updater

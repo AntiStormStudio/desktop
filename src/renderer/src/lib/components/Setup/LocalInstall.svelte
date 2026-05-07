@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fade, fly } from 'svelte/transition'
   import { onMount } from 'svelte'
-  import { connections, config, serverInfo } from '../../stores'
+  import { config, serverInfo } from '../../stores'
   import i18n from '../../i18n'
   import { APP_PROFILE } from '../../profile'
 
@@ -43,14 +43,7 @@
       await window.electronAPI.startServer()
       const info = await window.electronAPI.getServerInfo()
 
-      await window.electronAPI.addConnection({
-        id: 'local',
-        name: 'Local',
-        type: 'local',
-        url: info?.url || 'http://127.0.0.1:8080'
-      })
       await window.electronAPI.setDefaultConnection('local')
-      connections.set(await window.electronAPI.getConnections())
       config.set(await window.electronAPI.getConfig())
 
       phase = 'done'
