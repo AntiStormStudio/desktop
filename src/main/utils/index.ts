@@ -13,6 +13,12 @@ import { execFileSync, exec, spawn, execSync, execFile } from 'child_process'
 
 import log from 'electron-log'
 import { APP_PROFILE } from '../../shared/profile'
+import {
+  getPythonDownloadUrls,
+  getPypiInstallArgs,
+  downloadWithMirrors,
+  prewarmNetworkDetection
+} from './download-sources'
 log.transports.file.resolvePathFn = () => getLogFilePath('main')
 
 const serverLogger = log.create({ logId: 'server' })
@@ -34,17 +40,6 @@ export const getAppPath = (): string => {
     appPath = path.dirname(appPath)
   }
   return path.normalize(appPath)
-}
-
-export const getBundledResourcePath = (...segments: string[]): string | null => {
-  const candidates = app.isPackaged
-    ? [
-        path.join(process.resourcesPath, 'resources', ...segments),
-        path.join(process.resourcesPath, 'app.asar.unpacked', 'resources', ...segments)
-      ]
-    : [path.join(getAppPath(), 'resources', ...segments)]
-
-  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null
 }
 
 export const getUserHomePath = (): string => {
@@ -179,14 +174,17 @@ const getArchString = () => {
   return archMap[os.arch()] || 'x86_64'
 }
 
-const generateDownloadUrl = () => {
-  const baseUrl = 'https://github.com/astral-sh/python-build-standalone/releases/download'
+const getPythonStandaloneFilename = () => {
   const releaseDate = '20260310'
   const pythonVersion = '3.12.13'
   const archString = getArchString()
   const platformString = getPlatformString()
-  const filename = `cpython-${pythonVersion}+${releaseDate}-${archString}-${platformString}-install_only.tar.gz`
-  return `${baseUrl}/${releaseDate}/${filename}`
+  return `cpython-${pythonVersion}+${releaseDate}-${archString}-${platformString}-install_only.tar.gz`
+}
+
+const generateDownloadUrls = async () => {
+  const filename = getPythonStandaloneFilename()
+  return getPythonDownloadUrls(filename)
 }
 
 export const downloadFileWithProgress = async (url, downloadPath, onProgress) => {
@@ -230,26 +228,6 @@ export const getPythonDownloadPath = (): string => {
   return path.join(getUserDataPath(), 'python.tar.gz')
 }
 
-const getBundledPythonArchivePath = (): string | null => {
-  const platformKey = getBundledRuntimePlatformKey()
-  if (!platformKey) return null
-  return getBundledResourcePath('python', platformKey, 'python.tar.gz')
-}
-
-const getBundledUvWheelhousePath = (): string | null => {
-  const platformKey = getBundledRuntimePlatformKey()
-  if (!platformKey) return null
-  return getBundledResourcePath('python', platformKey, 'wheelhouse')
-}
-
-const getBundledRuntimePlatformKey = (): string | null => {
-  const arch = os.arch()
-  if (process.platform === 'win32' && arch === 'x64') return 'win32-x64'
-  if (process.platform === 'darwin' && arch === 'arm64') return 'darwin-arm64'
-  if (process.platform === 'darwin' && arch === 'x64') return 'darwin-x64'
-  return null
-}
-
 export const getPythonInstallationDir = (): string => {
   const pythonDir = path.join(getInstallDir(), 'python')
   if (!fs.existsSync(pythonDir)) {
@@ -263,34 +241,22 @@ export const getPythonInstallationDir = (): string => {
 }
 
 const downloadPython = async (onProgress = null) => {
-  const url = generateDownloadUrl()
   const downloadPath = getPythonDownloadPath()
-
-  const bundledPython = getBundledPythonArchivePath()
-  if (bundledPython) {
-    fs.copyFileSync(bundledPython, downloadPath)
-    log.info(`Using bundled Python archive: ${bundledPython}`)
-    onProgress?.(100, fs.statSync(downloadPath).size, fs.statSync(downloadPath).size)
-    return downloadPath
-  }
 
   log.info(`Detected system: ${os.platform()} ${os.arch()}`)
   log.info(`Download path: ${downloadPath}`)
-  log.info(`URL: ${url}`)
 
   if (fs.existsSync(downloadPath)) {
     log.info(`File already exists: ${downloadPath}`)
     return downloadPath
   }
 
-  try {
-    const result = await downloadFileWithProgress(url, downloadPath, onProgress)
-    log.info(`Python downloaded successfully to: ${result}`)
-    return result
-  } catch (error) {
-    log.error(`Download failed: ${error?.message}`)
-    throw error
-  }
+  const urls = await generateDownloadUrls()
+  log.info(`Download URLs: ${urls.join(', ')}`)
+
+  await downloadWithMirrors(urls, downloadPath, onProgress)
+  log.info(`Python downloaded successfully to: ${downloadPath}`)
+  return downloadPath
 }
 
 const checkInternet = async () => {
@@ -308,7 +274,7 @@ export const installPython = async (
 ): Promise<boolean> => {
   const pythonDownloadPath = getPythonDownloadPath()
   if (!fs.existsSync(pythonDownloadPath)) {
-    if (!getBundledPythonArchivePath() && !(await checkInternet())) {
+    if (!(await checkInternet())) {
       throw new Error(
         'An active internet connection is required. Please connect to the internet and try again.'
       )
@@ -355,18 +321,12 @@ export const installPython = async (
   try {
     onStatus?.('Installing uv package manager…')
     const pythonPath = getPythonPath(installationDir)
-    const uvWheelhouse = getBundledUvWheelhousePath()
-    const uvArgs = uvWheelhouse
-      ? ['-m', 'pip', 'install', '--no-index', '--find-links', uvWheelhouse, 'uv']
-      : ['-m', 'pip', 'install', 'uv']
-    if (uvWheelhouse) {
-      log.info(`Installing uv from bundled wheelhouse: ${uvWheelhouse}`)
-      onStatus?.('Installing bundled uv package manager…')
-    }
+    const uvInstallArgs = await getPypiInstallArgs('uv', false)
+    log.info(`Installing uv via pip (mirror-aware)`)
     await new Promise<void>((resolve, reject) => {
       execFile(
         pythonPath,
-        uvArgs,
+        ['-m', 'pip', 'install', ...uvInstallArgs],
         {
           encoding: 'utf-8',
           env: pythonEnv()
@@ -489,8 +449,7 @@ export const uninstallPython = (installationDir?: string): boolean => {
 export const installPackage = (
   packageName: string,
   version?: string,
-  onStatus?: (status: string) => void,
-  options?: { wheelhouse?: string | null }
+  onStatus?: (status: string) => void
 ): Promise<boolean> => {
   return new Promise((resolve, reject) => {
     if (!isPythonInstalled()) {
@@ -500,62 +459,54 @@ export const installPackage = (
     }
     const pythonPath = getPythonPath()
     const packageSpecifier = version ? `${packageName}==${version}` : packageName
-    const installArgs = options?.wheelhouse
-      ? [
-          '-m',
-          'uv',
-          'pip',
-          'install',
-          '--no-index',
-          '--find-links',
-          options.wheelhouse,
-          packageSpecifier
-        ]
-      : ['-m', 'uv', 'pip', 'install', ...(version ? [packageSpecifier] : [packageName, '-U'])]
 
-    if (options?.wheelhouse) {
-      log.info(`Installing ${packageName} from bundled wheelhouse: ${options.wheelhouse}`)
-      onStatus?.(`Installing bundled ${packageName}…`)
-    }
+    log.info(`Installing ${packageName}${version ? ` v${version}` : ''}…`)
+    onStatus?.(`Installing ${packageName}…`)
 
-    const commandProcess = execFile(pythonPath, installArgs, {
-      env: pythonEnv()
-    })
+    // Build args asynchronously so we can resolve mirror indexes
+    ;(async () => {
+      const pypiArgs = await getPypiInstallArgs(version ? packageSpecifier : packageName, !version)
+      const installArgs = ['-m', 'uv', 'pip', 'install', ...pypiArgs]
 
-    let lastLine = ''
-    commandProcess.stdout?.on('data', (data) => {
-      const line = data.toString().trim()
-      log.info(line)
-      if (line) {
-        lastLine = line
-        onStatus?.(line)
-      }
-    })
-    commandProcess.stderr?.on('data', (data) => {
-      const line = data.toString().trim()
-      log.info(line)
-      if (line) {
-        lastLine = line
-        onStatus?.(line)
-      }
-    })
-    commandProcess.on('exit', (code) => {
-      log.info(`Package install exited with code ${code}`)
-      if (code === 0) {
-        resolve(true)
-      } else {
-        reject(
-          new Error(
-            lastLine ||
-              `Package installation failed (exit code ${code}). Please check your internet connection and try again.`
+      const commandProcess = execFile(pythonPath, installArgs, {
+        env: pythonEnv()
+      })
+
+      let lastLine = ''
+      commandProcess.stdout?.on('data', (data) => {
+        const line = data.toString().trim()
+        log.info(line)
+        if (line) {
+          lastLine = line
+          onStatus?.(line)
+        }
+      })
+      commandProcess.stderr?.on('data', (data) => {
+        const line = data.toString().trim()
+        log.info(line)
+        if (line) {
+          lastLine = line
+          onStatus?.(line)
+        }
+      })
+      commandProcess.on('exit', (code) => {
+        log.info(`Package install exited with code ${code}`)
+        if (code === 0) {
+          resolve(true)
+        } else {
+          reject(
+            new Error(
+              lastLine ||
+                `Package installation failed (exit code ${code}). Please check your internet connection and try again.`
+            )
           )
-        )
-      }
-    })
-    commandProcess.on('error', (error) => {
-      log.error(`Package install error: ${error.message}`)
-      reject(new Error(`Failed to run package installer: ${error.message}`))
-    })
+        }
+      })
+      commandProcess.on('error', (error) => {
+        log.error(`Package install error: ${error.message}`)
+        reject(new Error(`Failed to run package installer: ${error.message}`))
+      })
+    })().catch(reject)
   })
 }
 
@@ -565,12 +516,6 @@ export const installPackages = async (packages: string[], version?: string): Pro
     if (!ok) return false
   }
   return true
-}
-
-export const getBundledOpenTerminalWheelhousePath = (): string | null => {
-  const platformKey = getBundledRuntimePlatformKey()
-  if (!platformKey) return null
-  return getBundledResourcePath('open-terminal', platformKey, 'wheelhouse')
 }
 
 export const isPackageInstalled = (packageName: string): boolean => {

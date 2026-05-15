@@ -19,7 +19,7 @@
   let settingsOpen = $state(false)
   let settingsTab = $state('general')
   let settingsRequestId = $state(0)
-  let sidebarOpen = $state(true)
+  let sidebarOpen = $state(false)
   let activeConnectionName = $state('')
   let activeTabId = $state('')
   let browserTabs = $state<BrowserTab[]>([])
@@ -38,7 +38,7 @@
     connections.set(await window.electronAPI.getConnections())
     const cfg = await window.electronAPI.getConfig()
     config.set(cfg)
-    sidebarOpen = cfg?.showSidebar ?? true
+    sidebarOpen = cfg?.showSidebar ?? false
     cleanupDataListener = window.electronAPI.onData((data: any) => {
       if (data.type === 'settings:open') {
         settingsTab = data.data?.tab ?? 'general'

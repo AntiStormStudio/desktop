@@ -12,7 +12,6 @@ import {
   isPackageInstalled,
   isPythonInstalled,
   isUvInstalled,
-  getBundledOpenTerminalWheelhousePath,
   portInUse
 } from './index'
 import { ServiceLock, isProcessAlive } from './service-lock'
@@ -137,17 +136,6 @@ export const installOpenTerminal = async (
   }
 
   onStatus?.('Installing Open Terminal…')
-  const bundledWheelhouse = !version ? getBundledOpenTerminalWheelhousePath() : null
-  if (bundledWheelhouse) {
-    try {
-      return await installPackage('open-terminal', undefined, onStatus, {
-        wheelhouse: bundledWheelhouse
-      })
-    } catch (error) {
-      log.warn('Bundled Open Terminal install failed; falling back to online install:', error)
-      onStatus?.('Bundled Open Terminal install failed. Falling back to online install…')
-    }
-  }
   return installPackage('open-terminal', version, onStatus)
 }
 

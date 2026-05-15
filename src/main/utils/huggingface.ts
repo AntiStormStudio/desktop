@@ -12,7 +12,8 @@ import * as fs from 'fs'
 import * as path from 'path'
 import log from 'electron-log'
 
-import { getInstallDir, downloadFileWithProgress } from './index'
+import { getInstallDir } from './index'
+import { getHuggingFaceBaseUrl, getHuggingFaceApiBaseUrl } from './download-sources'
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -164,8 +165,9 @@ export const downloadModel = async (
     return destPath
   }
 
-  // Build download URL
-  const downloadUrl = `https://huggingface.co/${repo}/resolve/main/${encodeURIComponent(filename)}`
+  // Build download URL (mirror-aware)
+  const hfBase = await getHuggingFaceBaseUrl()
+  const downloadUrl = `${hfBase}/${repo}/resolve/main/${encodeURIComponent(filename)}`
 
   log.info(`[huggingface] Downloading ${repo}/${filename}`)
   log.info(`[huggingface] URL: ${downloadUrl}`)
@@ -337,7 +339,8 @@ export const searchModels = async (query: string, token?: string): Promise<HfRep
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const response = await fetch(`https://huggingface.co/api/models?${params}`, { headers })
+  const hfApiBase = await getHuggingFaceApiBaseUrl()
+  const response = await fetch(`${hfApiBase}/models?${params}`, { headers })
   if (!response.ok) {
     throw new Error(`HF search failed: ${response.status} ${response.statusText}`)
   }
@@ -361,7 +364,8 @@ export const getRepoFiles = async (repo: string, token?: string): Promise<HfFile
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const response = await fetch(`https://huggingface.co/api/models/${repo}`, { headers })
+  const hfApiBase = await getHuggingFaceApiBaseUrl()
+  const response = await fetch(`${hfApiBase}/models/${repo}`, { headers })
   if (!response.ok) {
     throw new Error(`Failed to fetch repo info: ${response.status} ${response.statusText}`)
   }

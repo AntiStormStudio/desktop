@@ -85,6 +85,7 @@ import {
 } from './utils/huggingface'
 
 import { initUpdater, checkForUpdates, downloadUpdate, installUpdate } from './updater'
+import { prewarmNetworkDetection } from './utils/download-sources'
 import { APP_PROFILE } from '../shared/profile'
 
 import log from 'electron-log'
@@ -1975,6 +1976,7 @@ if (!gotTheLock) {
     registerProtocolClient()
 
     CONFIG = await getConfig()
+    prewarmNetworkDetection()
     loadSpotlightPosition()
     log.info('Config:', CONFIG)
 

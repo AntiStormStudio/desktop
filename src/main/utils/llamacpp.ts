@@ -7,7 +7,8 @@ import { execFileSync } from 'child_process'
 import * as tar from 'tar'
 import log from 'electron-log'
 
-import { getConfig, setConfig, getInstallDir, portInUse, downloadFileWithProgress } from './index'
+import { getConfig, setConfig, getInstallDir, portInUse } from './index'
+import { getGithubApiUrl, getGithubDownloadUrls, downloadWithMirrors } from './download-sources'
 
 import { getModelsDir } from './huggingface'
 import { ServiceLock, isProcessAlive } from './service-lock'
@@ -254,13 +255,14 @@ export const setupLlamaCpp = async (onStatus?: (status: string) => void): Promis
   }
 
   onStatus?.('Fetching release info…')
-  const apiUrl =
+  const apiPath =
     version === 'latest'
-      ? 'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest'
-      : `https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/${version}`
+      ? 'repos/ggml-org/llama.cpp/releases/latest'
+      : `repos/ggml-org/llama.cpp/releases/tags/${version}`
 
   let releaseData: any
   try {
+    const apiUrl = await getGithubApiUrl(apiPath)
     const response = await fetch(apiUrl, {
       headers: { Accept: 'application/vnd.github.v3+json' },
       signal: AbortSignal.timeout(10000)
@@ -310,7 +312,8 @@ export const setupLlamaCpp = async (onStatus?: (status: string) => void): Promis
 
   const downloadPath = path.join(versionDir, asset.name)
   if (!fs.existsSync(downloadPath)) {
-    await downloadFileWithProgress(asset.browser_download_url, downloadPath, (progress) => {
+    const downloadUrls = await getGithubDownloadUrls(asset.browser_download_url)
+    await downloadWithMirrors(downloadUrls, downloadPath, (progress) => {
       onStatus?.(`Downloading… ${progress.toFixed(0)}%`)
     })
   }
@@ -367,8 +370,9 @@ export const checkLlamaCppUpdate = async (): Promise<{
   const currentInfo = getLlamaCppInfo()
 
   try {
+    const apiUrl = await getGithubApiUrl('repos/ggml-org/llama.cpp/releases/latest')
     const response = await fetch(
-      'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest',
+      apiUrl,
       {
         headers: { Accept: 'application/vnd.github.v3+json' },
         signal: AbortSignal.timeout(5000)
@@ -416,8 +420,9 @@ export const updateLlamaCpp = async (
   onStatus?.('Checking for updates…')
   let releaseTag: string
   try {
+    const apiUrl = await getGithubApiUrl('repos/ggml-org/llama.cpp/releases/latest')
     const response = await fetch(
-      'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest',
+      apiUrl,
       {
         headers: { Accept: 'application/vnd.github.v3+json' },
         signal: AbortSignal.timeout(10000)

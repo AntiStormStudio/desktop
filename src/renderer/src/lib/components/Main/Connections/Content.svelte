@@ -275,8 +275,9 @@
         const connId = wv.dataset.connectionId ?? ''
         if (!tabId || !connId) return
 
-        // Mark loading when navigation starts
-        wv.addEventListener('did-start-loading', () => {
+        // Mark loading when main-frame navigation starts (ignore subframe/iframe loads)
+        wv.addEventListener('did-start-navigation', (event: any) => {
+          if (event.isMainFrame === false) return
           webviewLoading.set(tabId, true)
           webviewLoading = new Map(webviewLoading)
         })
@@ -299,8 +300,9 @@
           webviewErrors = new Map(webviewErrors)
         })
 
-        // Clear error when a navigation succeeds (retry, redirect, etc.)
+        // Clear error when a main-frame navigation succeeds (retry, redirect, etc.)
         wv.addEventListener('did-navigate', (event: any) => {
+          if (event.isMainFrame === false) return
           if (webviewErrors.has(tabId)) {
             webviewErrors.delete(tabId)
             webviewErrors = new Map(webviewErrors)
@@ -309,6 +311,7 @@
         })
 
         wv.addEventListener('did-navigate-in-page', (event: any) => {
+          if (event.isMainFrame === false) return
           if (event.url) onUpdateTab(tabId, { url: event.url })
         })
 
