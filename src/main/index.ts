@@ -169,7 +169,9 @@ const isSparkPasskeyOrigin = (origin?: string): boolean => {
   if (!origin) return false
   try {
     const url = new URL(origin)
-    return url.protocol === 'https:' && url.hostname === getSparkPasskeyRpId()
+    const rpId = getSparkPasskeyRpId()
+    // 允许精确匹配或作为子域名
+    return url.protocol === 'https:' && (url.hostname === rpId || url.hostname.endsWith('.' + rpId))
   } catch {
     return false
   }
@@ -967,8 +969,10 @@ async function shouldGrantRemotePermission(
 async function selectWebAuthnAccount(details: any): Promise<string | null> {
   const rpId = details?.relyingPartyId
   const accounts = Array.isArray(details?.accounts) ? details.accounts : []
+  const expectedRpId = getSparkPasskeyRpId()
 
-  if (rpId !== getSparkPasskeyRpId()) {
+  // 允许 RP ID 精确匹配或作为子域名
+  if (rpId !== expectedRpId && !rpId.endsWith('.' + expectedRpId)) {
     log.warn(`Rejected WebAuthn account selection for unexpected RP ID: ${rpId}`)
     return null
   }
@@ -2113,6 +2117,56 @@ if (!gotTheLock) {
         }
         contents.on('will-navigate', maybeOpenWebviewUrlExternally)
         contents.on('will-redirect', maybeOpenWebviewUrlExternally)
+
+        // ── Desktop OAuth callback interception ──
+        // Intercept /auth/desktop-oauth-callback?ticket=... and convert to magic link
+        const handleDesktopOAuthCallback = async (event: Electron.Event, url: string) => {
+          try {
+            const parsed = new URL(url)
+            if (!parsed.pathname.startsWith('/auth/desktop-oauth-callback')) return
+
+            const ticket = parsed.searchParams.get('ticket')
+            const redirect = parsed.searchParams.get('redirect') || '/auth'
+
+            if (!ticket) {
+              log.warn('Desktop OAuth callback missing ticket')
+              return
+            }
+
+            event.preventDefault()
+
+            const config = await getConfig()
+            const currentUrl = contents.getURL()
+            const connection = config.connections.find((conn) => {
+              try {
+                return new URL(conn.url).origin === new URL(currentUrl).origin
+              } catch {
+                return false
+              }
+            })
+
+            if (!connection) {
+              log.warn('No connection found for OAuth callback')
+              return
+            }
+
+            const serverOrigin = new URL(connection.url).origin
+            const authUrl = new URL('/auth', serverOrigin)
+            authUrl.searchParams.set('desktop_magic_ticket', ticket)
+            authUrl.searchParams.set('desktop_magic_redirect', redirect)
+
+            sendToRenderer('connection:open', {
+              connectionId: connection.id,
+              url: authUrl.toString()
+            })
+
+            log.info('Processed desktop OAuth callback')
+          } catch (error) {
+            log.warn('Failed to handle desktop OAuth callback:', error)
+          }
+        }
+        contents.on('will-navigate', handleDesktopOAuthCallback)
+        contents.on('will-redirect', handleDesktopOAuthCallback)
 
         // ── Native right-click context menu (#161) ──────────────────
         // Electron <webview> guests don't show a context menu by default,
